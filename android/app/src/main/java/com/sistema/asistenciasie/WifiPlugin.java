@@ -23,10 +23,34 @@ import com.getcapacitor.annotation.PermissionCallback;
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
             }
+        ),
+        @Permission(
+            alias = "camera",
+            strings = {
+                Manifest.permission.CAMERA
+            }
         )
     }
 )
 public class WifiPlugin extends Plugin {
+
+    @PluginMethod
+    public void requestCameraPermission(PluginCall call) {
+        if (getPermissionState("camera") != PermissionState.GRANTED) {
+            requestPermissionForAlias("camera", call, "cameraPermissionCallback");
+            return;
+        }
+        JSObject ret = new JSObject();
+        ret.put("granted", true);
+        call.resolve(ret);
+    }
+
+    @PermissionCallback
+    private void cameraPermissionCallback(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("granted", getPermissionState("camera") == PermissionState.GRANTED);
+        call.resolve(ret);
+    }
 
     @PluginMethod
     public void getWifiInfo(PluginCall call) {

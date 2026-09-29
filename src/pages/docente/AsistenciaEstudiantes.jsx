@@ -8,6 +8,9 @@ import {
   Users, Camera, CameraOff, BookOpen, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { registerPlugin } from '@capacitor/core';
+
+const WifiPlugin = registerPlugin('WifiPlugin');
 
 export default function AsistenciaEstudiantes() {
   const { user } = useAuth();
@@ -114,39 +117,79 @@ export default function AsistenciaEstudiantes() {
 
   const iniciarCamara = async () => {
     setIniciandoCamara(true);
+    setCamaraActiva(true);
     setError('');
+
     try {
+      // 1. Solicitar permiso nativo de cámara en Android si está en la app
+      try {
+        if (WifiPlugin && WifiPlugin.requestCameraPermission) {
+          await WifiPlugin.requestCameraPermission();
+        }
+      } catch (ePlugin) {
+        console.warn('WifiPlugin.requestCameraPermission no disponible:', ePlugin);
+      }
+
+      // 2. Dar tiempo al navegador para renderizar el contenedor en el layout
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       const qrRegionId = 'qr-reader-video';
+
+      // Limpiar escáner anterior si existiera
+      if (html5QrCodeRef.current) {
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            await html5QrCodeRef.current.stop();
+          }
+          await html5QrCodeRef.current.clear();
+        } catch (_) {}
+      }
+
       const qrScanner = new Html5Qrcode(qrRegionId);
       html5QrCodeRef.current = qrScanner;
 
+      // 3. Detectar cámaras disponibles y seleccionar cámara trasera
+      let cameraConfig = { facingMode: 'environment' };
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          const trasera = devices.find(d =>
+            /back|rear|trasera|environment/i.test(d.label)
+          ) || devices[devices.length - 1];
+          if (trasera && trasera.id) {
+            cameraConfig = trasera.id;
+          }
+        }
+      } catch (errDev) {
+        console.warn('No se pudo listar cámaras con getCameras:', errDev);
+      }
+
       const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
+        fps: 15,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const edge = Math.min(viewfinderWidth, viewfinderHeight);
+          const boxSize = Math.max(200, Math.floor(edge * 0.7));
+          return { width: boxSize, height: boxSize };
+        },
         aspectRatio: 1.0,
       };
 
       await qrScanner.start(
-        { facingMode: 'environment' }, // Cámara trasera del celular
+        cameraConfig,
         config,
         async (decodedText) => {
           if (pausadoRef.current) return;
           pausadoRef.current = true;
           await procesarTokenQR(decodedText);
-          // Pausa de 2.5 segundos para evitar leer el mismo código QR continuamente
           setTimeout(() => {
             pausadoRef.current = false;
           }, 2500);
         },
-        (errorMessage) => {
-          // Errores de frame no decodificado (normal durante escaneo)
-        }
+        () => {}
       );
-
-      setCamaraActiva(true);
     } catch (err) {
       console.error('Error al iniciar cámara:', err);
-      setError('No se pudo acceder a la cámara. Verifique que concedió permisos de cámara a la aplicación.');
+      setError('No se pudo abrir la cámara. Asegúrese de otorgar permisos de cámara a la aplicación en los Ajustes del celular.');
       setCamaraActiva(false);
     } finally {
       setIniciandoCamara(false);
@@ -255,14 +298,50 @@ export default function AsistenciaEstudiantes() {
             )}
           </div>
 
+          {/* Estilos para que el video HTML5 llene el marco en Android */}
+          <style>{`
+            #qr-reader-video {
+              width: 100% !important;
+              min-height: 280px !important;
+              position: relative !important;
+              background-color: #000 !important;
+              border-radius: 1rem !important;
+              overflow: hidden !important;
+            }
+            #qr-reader-video video {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: cover !important;
+              display: block !important;
+              border-radius: 1rem !important;
+            }
+            #qr-reader-video__scan_region {
+              border: none !important;
+            }
+            #qr-reader-video__dashboard_section_csr {
+              display: none !important;
+            }
+          `}</style>
+
           {/* Contenedor del video del escáner */}
-          <div className={`${camaraActiva ? 'block' : 'hidden'} relative rounded-2xl overflow-hidden bg-black aspect-square max-w-sm mx-auto shadow-inner`}>
+          <div className={`${(camaraActiva || iniciandoCamara) ? 'block' : 'hidden'} relative rounded-2xl overflow-hidden bg-black aspect-square max-w-sm mx-auto shadow-inner`}>
             <div id="qr-reader-video" className="w-full h-full"></div>
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className="w-60 h-60 border-2 border-brand-yellow rounded-2xl opacity-80 animate-pulse"></div>
-            </div>
+
+            {iniciandoCamara && (
+              <div className="absolute inset-0 bg-black flex flex-col items-center justify-center text-white gap-3 z-10">
+                <Loader2 size={36} className="animate-spin text-brand-yellow" />
+                <p className="text-xs font-semibold">Conectando con la cámara trasera...</p>
+              </div>
+            )}
+
+            {!iniciandoCamara && camaraActiva && (
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                <div className="w-60 h-60 border-2 border-brand-yellow rounded-2xl opacity-80 animate-pulse"></div>
+              </div>
+            )}
+
             {registrando && (
-              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-2">
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white gap-2 z-20">
                 <Loader2 size={32} className="animate-spin text-brand-yellow" />
                 <p className="text-xs font-semibold">Registrando asistencia...</p>
               </div>

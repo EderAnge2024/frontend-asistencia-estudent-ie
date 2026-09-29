@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { configuracionService } from '../../services/admin.service';
 import { ArrowLeft, Save, MapPin, Loader2, AlertCircle, CheckCircle, Wifi } from 'lucide-react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const WifiPlugin = registerPlugin('WifiPlugin');
 
 export default function ConfiguracionAsistencia() {
   const navigate = useNavigate();
@@ -78,48 +81,49 @@ export default function ConfiguracionAsistencia() {
     setObteniendoWifi(true);
     setMsg(null);
     try {
-      // 1. Intentar detección automática nativa (App Móvil Capacitor en Android/iOS)
-      const isNative = typeof window !== 'undefined' && 
-                       window.Capacitor && 
-                       typeof window.Capacitor.isNativePlatform === 'function' && 
-                       window.Capacitor.isNativePlatform();
+      const isNative = Capacitor.isNativePlatform();
 
       if (isNative) {
-        if (window.Capacitor.Plugins?.Wifi?.getWifiInfo) {
-          const info = await window.Capacitor.Plugins.Wifi.getWifiInfo();
+        try {
+          const info = await WifiPlugin.getWifiInfo();
           if (info && info.ssid) {
             setForm(prev => ({
               ...prev,
               wifi_ssid: info.ssid,
               wifi_bssid: info.bssid || prev.wifi_bssid
             }));
-            setMsg({ ok: true, texto: `✅ Red Wi-Fi detectada automáticamente: "${info.ssid}"` });
+            setMsg({
+              ok: true,
+              texto: `✅ Red Wi-Fi detectada en el APK: "${info.ssid}" ${info.bssid ? `(${info.bssid})` : ''}`
+            });
+            return;
+          } else {
+            setMsg({
+              ok: false,
+              texto: '⚠️ No se pudo obtener el nombre del Wi-Fi. Asegúrese de estar conectado y con GPS activado.'
+            });
             return;
           }
+        } catch (pluginErr) {
+          const errorMsg = pluginErr?.message || String(pluginErr);
+          setMsg({
+            ok: false,
+            texto: `⚠️ ${errorMsg}`
+          });
+          return;
         }
       }
 
-      // 2. Intentar detección por Web Network Information API (si la red o navegador la expone)
-      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      if (conn && conn.type === 'wifi' && conn.ssid) {
-        setForm(prev => ({
-          ...prev,
-          wifi_ssid: conn.ssid
-        }));
-        setMsg({ ok: true, texto: `✅ Red Wi-Fi detectada automáticamente: "${conn.ssid}"` });
-        return;
-      }
-
-      // 3. Si no fue posible detectar automáticamente (ej. navegador de PC por privacidad o sin permiso de ubicación en el celular)
+      // Si se ejecuta en navegador Web (PC o móvil no-APK)
       setMsg({
         ok: false,
-        texto: '⚠️ No se pudo detectar la red Wi-Fi automáticamente (restringido por privacidad del navegador o sin permisos). Por favor, escribe el nombre de tu red manualmente en el campo inferior.'
+        texto: 'ℹ️ Los navegadores web bloquean el acceso al SSID del router por seguridad y privacidad de Google/W3C. En el APK móvil con GPS activado se detecta automáticamente. En navegador web, por favor escribe el nombre de la red Wi-Fi manualmente.'
       });
     } catch (err) {
       console.error('Error al detectar Wi-Fi:', err);
       setMsg({
         ok: false,
-        texto: '⚠️ No se pudo detectar la red Wi-Fi automáticamente. Por favor, escribe el nombre de tu red manualmente en el campo inferior.'
+        texto: '⚠️ No se pudo detectar la red Wi-Fi automáticamente. Puedes escribir el nombre manualmente.'
       });
     } finally {
       setObteniendoWifi(false);

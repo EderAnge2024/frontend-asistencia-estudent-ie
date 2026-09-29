@@ -60,7 +60,7 @@ export default function DirectorDashboard() {
             <User size={28} className="text-brand-blue" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs text-brand-lightblue font-semibold uppercase">Director</p>
+            <p className="text-xs text-brand-lightblue font-semibold uppercase">{user?.rol || 'Director'}</p>
             <h2 className="text-base font-bold truncate">{user?.nombres} {user?.apellidos}</h2>
             <p className="text-xs text-white/70 truncate">{user?.institucion_nombre}</p>
           </div>

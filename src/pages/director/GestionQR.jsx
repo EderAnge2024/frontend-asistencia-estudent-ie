@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { estudiantesService } from '../../services/estudiantes.service';
 import { qrService } from '../../services/qr.service';
-import { ArrowLeft, QrCode, Search, Loader2, RefreshCw, XCircle, CheckCircle, AlertCircle, Printer, Eye, X } from 'lucide-react';
+import { ArrowLeft, QrCode, Search, Loader2, RefreshCw, XCircle, CheckCircle, AlertCircle, Printer, Eye, X, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { descargarImagen } from '../../utils/exportador';
 
 export default function GestionQR() {
   const navigate = useNavigate();
@@ -54,6 +55,91 @@ export default function GestionQR() {
       setMsg({ ok: true, texto: 'Credencial invalidada.' });
     } catch (e) {
       setMsg({ ok: false, texto: e.response?.data?.message || 'Error al invalidar.' });
+    }
+  };
+
+  const descargarQR = (estudiante, credencial) => {
+    try {
+      const containerId = qrModal ? 'qr-modal-svg' : `qr-svg-${estudiante.id_estudiante}`;
+      const container = document.getElementById(containerId);
+      const svg = container ? container.querySelector('svg') : document.querySelector('svg');
+
+      if (!svg) {
+        setMsg({ ok: false, texto: 'No se encontró el elemento QR para exportar.' });
+        return;
+      }
+
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const DOMURL = window.URL || window.webkitURL || window;
+      const url = DOMURL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const width = 600;
+        const height = 750;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Fondo blanco
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+
+        // Borde institucional
+        ctx.strokeStyle = '#003366';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(12, 12, width - 24, height - 24);
+
+        // Cabecera institucional
+        ctx.fillStyle = '#003366';
+        ctx.fillRect(18, 18, width - 36, 95);
+
+        ctx.fillStyle = '#FFCC00';
+        ctx.font = 'bold 24px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('CREDENCIAL ESCOLAR QR', width / 2, 58);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '14px Arial, sans-serif';
+        ctx.fillText('SISTEMA DE ASISTENCIAS IE', width / 2, 88);
+
+        // Datos del estudiante
+        ctx.fillStyle = '#003366';
+        ctx.font = 'bold 22px Arial, sans-serif';
+        const nombreCompleto = `${estudiante.nombres} ${estudiante.apellido_paterno} ${estudiante.apellido_materno || ''}`.trim();
+        ctx.fillText(nombreCompleto, width / 2, 150);
+
+        if (estudiante.dni) {
+          ctx.fillStyle = '#555555';
+          ctx.font = '16px Arial, sans-serif';
+          ctx.fillText(`DNI: ${estudiante.dni}`, width / 2, 180);
+        }
+
+        // Dibujar el QR centrado
+        const qrSize = 380;
+        const qrX = (width - qrSize) / 2;
+        const qrY = 210;
+        ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+
+        // Pie
+        ctx.fillStyle = '#888888';
+        ctx.font = '12px Arial, sans-serif';
+        ctx.fillText(`Emitido: ${new Date(credencial.fecha_emision || Date.now()).toLocaleDateString('es-PE')} · Token: ${credencial.token_qr?.slice(0, 14)}...`, width / 2, 640);
+
+        DOMURL.revokeObjectURL(url);
+
+        const nombreLimpio = `${estudiante.dni || estudiante.id_estudiante}_${estudiante.nombres.replace(/\s+/g, '_')}`;
+        const nombreArchivo = `QR_${nombreLimpio}.png`;
+        descargarImagen(canvas.toDataURL('image/png'), nombreArchivo);
+        setMsg({ ok: true, texto: `✅ Imagen QR de ${estudiante.nombres} descargada correctamente.` });
+      };
+
+      img.src = url;
+    } catch (err) {
+      console.error('Error al exportar QR:', err);
+      setMsg({ ok: false, texto: 'Error al exportar la imagen del QR.' });
     }
   };
 
@@ -120,7 +206,7 @@ export default function GestionQR() {
                   </div>
                   <div className="flex items-center gap-4 pt-1">
                     {cred.token_qr && (
-                      <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm shrink-0">
+                      <div id={`qr-svg-${e.id_estudiante}`} className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm shrink-0">
                         <QRCodeSVG value={cred.token_qr} size={64} level="M" />
                       </div>
                     )}
@@ -134,12 +220,20 @@ export default function GestionQR() {
                         <span className="text-xs font-mono text-gray-600 truncate max-w-[120px]">{cred.token_qr?.slice(0, 8)}...</span>
                       </div>
                       {activo && !expirado && (
-                        <button
-                          onClick={() => setQrModal({ estudiante: e, credencial: cred })}
-                          className="mt-1 text-xs text-brand-blue font-bold flex items-center gap-1 hover:underline"
-                        >
-                          <Eye size={12} /> Ver / Imprimir Credencial
-                        </button>
+                        <div className="pt-1 flex flex-col gap-1">
+                          <button
+                            onClick={() => setQrModal({ estudiante: e, credencial: cred })}
+                            className="text-xs text-brand-blue font-bold flex items-center gap-1 hover:underline text-left"
+                          >
+                            <Eye size={12} /> Ver / Imprimir Credencial
+                          </button>
+                          <button
+                            onClick={() => descargarQR(e, cred)}
+                            className="text-xs text-brand-green font-bold flex items-center gap-1 hover:underline text-left"
+                          >
+                            <Download size={12} /> Descargar Imagen QR (PNG)
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -168,7 +262,7 @@ export default function GestionQR() {
         })}
       </div>
 
-      {/* Modal Ver / Imprimir Credencial QR */}
+      {/* Modal Ver / Imprimir / Descargar Credencial QR */}
       {qrModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl relative">
@@ -194,7 +288,7 @@ export default function GestionQR() {
               </div>
 
               <div className="flex justify-center py-2">
-                <div className="bg-white p-4 rounded-2xl border-2 border-brand-blue/20 shadow-md">
+                <div id="qr-modal-svg" className="bg-white p-4 rounded-2xl border-2 border-brand-blue/20 shadow-md">
                   <QRCodeSVG value={qrModal.credencial.token_qr} size={180} level="H" includeMargin={true} />
                 </div>
               </div>
@@ -203,10 +297,16 @@ export default function GestionQR() {
                 ID: {qrModal.credencial.token_qr?.slice(0, 18)}...
               </p>
 
-              <div className="pt-2 flex gap-2 print:hidden">
+              <div className="pt-2 flex flex-col gap-2 print:hidden">
+                <button
+                  onClick={() => descargarQR(qrModal.estudiante, qrModal.credencial)}
+                  className="w-full bg-brand-green text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                >
+                  <Download size={16} /> Descargar Imagen QR
+                </button>
                 <button
                   onClick={() => window.print()}
-                  className="flex-1 bg-brand-yellow text-brand-black font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                  className="w-full bg-brand-yellow text-brand-black font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
                 >
                   <Printer size={16} /> Imprimir QR
                 </button>
@@ -218,4 +318,3 @@ export default function GestionQR() {
     </div>
   );
 }
-

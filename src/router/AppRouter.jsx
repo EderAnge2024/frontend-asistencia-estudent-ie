@@ -21,8 +21,8 @@ import GestionHorarios from '../pages/director/GestionHorarios';
 import GestionEventos from '../pages/director/GestionEventos';
 import ReportesDirector from '../pages/director/ReportesDirector';
 
-const ROLES_DIRECTOR = ['DIRECTOR', 'ADMIN', 'SUBDIRECTOR', 'SECRETARIO'];
-const ROLES_DOCENTE  = ['DOCENTE', 'DIRECTOR', 'ADMIN'];
+const ROLES_DIRECTOR = ['DIRECTOR', 'ADMIN', 'ADMINISTRADOR', 'SUBDIRECTOR', 'ESPECIALISTA', 'SECRETARIO'];
+const ROLES_DOCENTE  = ['DOCENTE', 'PROFESOR', 'DIRECTOR', 'ADMIN', 'ADMINISTRADOR', 'SUBDIRECTOR', 'ESPECIALISTA'];
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -69,7 +69,12 @@ export const AppRouter = () => {
         <Route path="/docente" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><DocenteDashboard /></RoleRoute></PrivateRoute>} />
         <Route path="/docente/mis-estudiantes" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><MisEstudiantes /></RoleRoute></PrivateRoute>} />
         <Route path="/docente/asistencia-estudiantes" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><AsistenciaEstudiantes /></RoleRoute></PrivateRoute>} />
+        <Route path="/docente/asistencia-estudiante" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><AsistenciaEstudiantes /></RoleRoute></PrivateRoute>} />
+        <Route path="/docente/asistencias-estudiantes" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><AsistenciaEstudiantes /></RoleRoute></PrivateRoute>} />
+        <Route path="/docente/asistencia" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><DocenteDashboard /></RoleRoute></PrivateRoute>} />
         <Route path="/docente/historial" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><HistorialDocente /></RoleRoute></PrivateRoute>} />
+        <Route path="/docente/historial-docente" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><HistorialDocente /></RoleRoute></PrivateRoute>} />
+        <Route path="/docente/mi-historial" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><HistorialDocente /></RoleRoute></PrivateRoute>} />
 
         {/* === RUTAS DIRECTOR === */}
         <Route path="/director" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><DirectorDashboard /></RoleRoute></PrivateRoute>} />
@@ -77,7 +82,9 @@ export const AppRouter = () => {
         <Route path="/director/matriculas" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><GestionMatriculas /></RoleRoute></PrivateRoute>} />
         <Route path="/director/qr" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><GestionQR /></RoleRoute></PrivateRoute>} />
         <Route path="/director/asistencia-docentes" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><VistaAsistencias tipo="docentes" /></RoleRoute></PrivateRoute>} />
+        <Route path="/director/asistencia-docente" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><VistaAsistencias tipo="docentes" /></RoleRoute></PrivateRoute>} />
         <Route path="/director/asistencia-estudiantes" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><VistaAsistencias tipo="estudiantes" /></RoleRoute></PrivateRoute>} />
+        <Route path="/director/asistencia-estudiante" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><VistaAsistencias tipo="estudiantes" /></RoleRoute></PrivateRoute>} />
         <Route path="/director/configuracion" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><ConfiguracionAsistencia /></RoleRoute></PrivateRoute>} />
         <Route path="/director/horarios" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><GestionHorarios /></RoleRoute></PrivateRoute>} />
         <Route path="/director/eventos" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><GestionEventos /></RoleRoute></PrivateRoute>} />

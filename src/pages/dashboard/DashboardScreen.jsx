@@ -6,8 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
-  const ROLES_DIRECTOR = ['DIRECTOR', 'ADMIN', 'SUBDIRECTOR', 'SECRETARIO'];
+  const ROLES_DIRECTOR = ['DIRECTOR', 'ADMIN', 'ADMINISTRADOR', 'SUBDIRECTOR', 'ESPECIALISTA', 'SECRETARIO'];
   if (!user) return <Navigate to="/login" replace />;
-  if (ROLES_DIRECTOR.includes(user.rol)) return <Navigate to="/director" replace />;
+  const userRol = user?.rol?.toUpperCase() || "";
+  if (ROLES_DIRECTOR.includes(userRol)) return <Navigate to="/director" replace />;
   return <Navigate to="/docente" replace />;
 }

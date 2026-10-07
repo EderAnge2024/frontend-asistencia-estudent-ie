@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { asistenciaDocenteService } from '../../services/asistenciaDocente.service';
-import { ArrowLeft, Loader2, CalendarDays, ChevronRight, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarDays, AlertCircle } from 'lucide-react';
+
+/** Devuelve la fecha en zona horaria Lima (YYYY-MM-DD) */
+function getFechaLima(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+}
 
 const ESTADO_STYLE = {
   PRESENTE:    'bg-green-100 text-brand-green',
@@ -15,14 +22,11 @@ export default function HistorialDocente() {
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [fechaInicio, setFechaInicio] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
-  });
-  const [fechaFin, setFechaFin] = useState(() => new Date().toISOString().split('T')[0]);
+  // Usar zona horaria Lima para coincidir con el backend
+  const [fechaInicio, setFechaInicio] = useState(() => getFechaLima(-30));
+  const [fechaFin, setFechaFin] = useState(() => getFechaLima());
 
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const res = await asistenciaDocenteService.miAsistencia({ fecha_inicio: fechaInicio, fecha_fin: fechaFin });
@@ -32,9 +36,9 @@ export default function HistorialDocente() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fechaInicio, fechaFin]);
 
-  useEffect(() => { cargar(); }, [fechaInicio, fechaFin]);
+  useEffect(() => { cargar(); }, [cargar]);
 
   const formatHora = (ts) => ts
     ? new Date(ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })

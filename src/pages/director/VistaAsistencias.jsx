@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { asistenciaDocenteService } from '../../services/asistenciaDocente.service';
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
-import { ArrowLeft, Loader2, Users, UserCheck, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, Search, AlertCircle, RefreshCw } from 'lucide-react';
 
 const ESTADO_COLOR = {
   PRESENTE:    'bg-green-100 text-brand-green',
@@ -11,15 +11,21 @@ const ESTADO_COLOR = {
   JUSTIFICADO: 'bg-blue-100 text-brand-blue',
 };
 
+/** Devuelve la fecha actual en zona horaria Lima (America/Lima) en formato YYYY-MM-DD */
+function getFechaHoyLima() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+}
+
 export default function VistaAsistencias({ tipo }) {
   const navigate = useNavigate();
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [fecha, setFecha] = useState(() => new Date().toISOString().split('T')[0]);
+  // Usar zona horaria Lima para que coincida con lo guardado en el servidor
+  const [fecha, setFecha] = useState(() => getFechaHoyLima());
   const [filtroEstado, setFiltroEstado] = useState('');
 
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const params = { fecha_inicio: fecha, fecha_fin: fecha };
@@ -31,9 +37,9 @@ export default function VistaAsistencias({ tipo }) {
     } catch (e) {
       setError(e.response?.data?.message || 'Error al cargar asistencias.');
     } finally { setLoading(false); }
-  };
+  }, [fecha, filtroEstado, tipo]);
 
-  useEffect(() => { cargar(); }, [fecha, filtroEstado, tipo]);
+  useEffect(() => { cargar(); }, [cargar]);
 
   const titulo = tipo === 'docentes' ? 'Asistencia Docentes' : 'Asistencia Estudiantes';
   const formatHora = ts => ts ? new Date(ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
@@ -46,22 +52,43 @@ export default function VistaAsistencias({ tipo }) {
           <h1 className="text-lg font-bold">{titulo}</h1>
           <span className="ml-auto text-xs text-white/60">{registros.length} registros</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="text-xs text-white/60 mb-1">Fecha</p>
-            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-              className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none" />
+        {/* Filtros con fondo blanco para que funcionen bien en móvil */}
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-xs text-white/60 mb-1">Fecha</p>
+              <input
+                type="date"
+                value={fecha}
+                onChange={e => setFecha(e.target.value)}
+                className="w-full bg-white text-brand-black text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/40"
+              />
+            </div>
+            <div>
+              <p className="text-xs text-white/60 mb-1">Estado</p>
+              {/* select con bg-white para que las opciones sean visibles en Android */}
+              <select
+                value={filtroEstado}
+                onChange={e => setFiltroEstado(e.target.value)}
+                className="w-full bg-white text-brand-black text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/40"
+              >
+                <option value="">Todos</option>
+                <option value="PRESENTE">PRESENTE</option>
+                <option value="TARDANZA">TARDANZA</option>
+                <option value="FALTA">FALTA</option>
+                <option value="JUSTIFICADO">JUSTIFICADO</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-white/60 mb-1">Estado</p>
-            <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
-              className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none">
-              <option value="">Todos</option>
-              {['PRESENTE', 'TARDANZA', 'FALTA', 'JUSTIFICADO'].map(s => (
-                <option key={s} value={s} className="text-black">{s}</option>
-              ))}
-            </select>
-          </div>
+          {/* Botón Buscar explícito */}
+          <button
+            onClick={cargar}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 bg-brand-yellow text-brand-black text-sm font-bold py-2.5 rounded-xl active:scale-95 transition-all disabled:opacity-60"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+            {loading ? 'Buscando...' : 'Buscar'}
+          </button>
         </div>
       </div>
 

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { estudiantesService } from '../../services/estudiantes.service';
 import { qrService } from '../../services/qr.service';
-import { ArrowLeft, QrCode, Search, Loader2, RefreshCw, XCircle, CheckCircle, AlertCircle, Printer, Eye, X, Download } from 'lucide-react';
+import { ArrowLeft, QrCode, Search, Loader2, RefreshCw, XCircle, CheckCircle, AlertCircle, Printer, Eye, X, Download, FileText } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { descargarImagen } from '../../utils/exportador';
+import { descargarImagen, exportarCredencialQRPDF } from '../../utils/exportador';
 
 export default function GestionQR() {
   const navigate = useNavigate();
@@ -58,15 +58,14 @@ export default function GestionQR() {
     }
   };
 
-  const descargarQR = (estudiante, credencial) => {
-    try {
+  const obtenerCanvasCredencial = (estudiante, credencial) => {
+    return new Promise((resolve, reject) => {
       const containerId = qrModal ? 'qr-modal-svg' : `qr-svg-${estudiante.id_estudiante}`;
       const container = document.getElementById(containerId);
       const svg = container ? container.querySelector('svg') : document.querySelector('svg');
 
       if (!svg) {
-        setMsg({ ok: false, texto: 'No se encontró el elemento QR para exportar.' });
-        return;
+        return reject(new Error('No se encontró el elemento QR para exportar.'));
       }
 
       const svgData = new XMLSerializer().serializeToString(svg);
@@ -126,20 +125,55 @@ export default function GestionQR() {
         // Pie
         ctx.fillStyle = '#888888';
         ctx.font = '12px Arial, sans-serif';
-        ctx.fillText(`Emitido: ${new Date(credencial.fecha_emision || Date.now()).toLocaleDateString('es-PE')} · Token: ${credencial.token_qr?.slice(0, 14)}...`, width / 2, 640);
+        ctx.fillText(
+          `Emitido: ${new Date(credencial?.fecha_emision || Date.now()).toLocaleDateString('es-PE')} · Token: ${credencial?.token_qr?.slice(0, 14)}...`,
+          width / 2,
+          640
+        );
 
         DOMURL.revokeObjectURL(url);
+        resolve(canvas);
+      };
 
-        const nombreLimpio = `${estudiante.dni || estudiante.id_estudiante}_${estudiante.nombres.replace(/\s+/g, '_')}`;
-        const nombreArchivo = `QR_${nombreLimpio}.png`;
-        descargarImagen(canvas.toDataURL('image/png'), nombreArchivo);
-        setMsg({ ok: true, texto: `✅ Imagen QR de ${estudiante.nombres} descargada correctamente.` });
+      img.onerror = (e) => {
+        DOMURL.revokeObjectURL(url);
+        reject(e);
       };
 
       img.src = url;
+    });
+  };
+
+  const descargarQR = async (estudiante, credencial) => {
+    try {
+      setMsg({ ok: true, texto: `Generando imagen QR de ${estudiante.nombres}...` });
+      const canvas = await obtenerCanvasCredencial(estudiante, credencial);
+      const nombreLimpio = `${estudiante.dni || estudiante.id_estudiante}_${estudiante.nombres.replace(/\s+/g, '_')}`;
+      const nombreArchivo = `QR_${nombreLimpio}.png`;
+      await descargarImagen(canvas.toDataURL('image/png'), nombreArchivo);
+      setMsg({ ok: true, texto: `✅ Imagen QR de ${estudiante.nombres} guardada/compartida correctamente.` });
     } catch (err) {
       console.error('Error al exportar QR:', err);
-      setMsg({ ok: false, texto: 'Error al exportar la imagen del QR.' });
+      setMsg({ ok: false, texto: 'Error al exportar la imagen del QR: ' + err.message });
+    }
+  };
+
+  const descargarQRPDF = async (estudiante, credencial) => {
+    try {
+      setMsg({ ok: true, texto: `Generando credencial en PDF de ${estudiante.nombres}...` });
+      const canvas = await obtenerCanvasCredencial(estudiante, credencial);
+      const nombreLimpio = `${estudiante.dni || estudiante.id_estudiante}_${estudiante.nombres.replace(/\s+/g, '_')}`;
+      const nombreArchivo = `Credencial_QR_${nombreLimpio}.pdf`;
+      await exportarCredencialQRPDF({
+        estudiante,
+        credencial,
+        qrDataUrl: canvas.toDataURL('image/png'),
+        nombreArchivo,
+      });
+      setMsg({ ok: true, texto: `✅ Credencial PDF de ${estudiante.nombres} generada/descargada correctamente.` });
+    } catch (err) {
+      console.error('Error al exportar PDF:', err);
+      setMsg({ ok: false, texto: 'Error al exportar PDF de credencial: ' + err.message });
     }
   };
 
@@ -220,19 +254,27 @@ export default function GestionQR() {
                         <span className="text-xs font-mono text-gray-600 truncate max-w-[120px]">{cred.token_qr?.slice(0, 8)}...</span>
                       </div>
                       {activo && !expirado && (
-                        <div className="pt-1 flex flex-col gap-1">
+                        <div className="pt-1 flex flex-col gap-1.5">
                           <button
                             onClick={() => setQrModal({ estudiante: e, credencial: cred })}
                             className="text-xs text-brand-blue font-bold flex items-center gap-1 hover:underline text-left"
                           >
                             <Eye size={12} /> Ver / Imprimir Credencial
                           </button>
-                          <button
-                            onClick={() => descargarQR(e, cred)}
-                            className="text-xs text-brand-green font-bold flex items-center gap-1 hover:underline text-left"
-                          >
-                            <Download size={12} /> Descargar Imagen QR (PNG)
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => descargarQR(e, cred)}
+                              className="text-[11px] text-green-700 bg-green-50 hover:bg-green-100 font-bold flex items-center gap-1 px-2 py-1 rounded-md active:scale-95 transition-all"
+                            >
+                              <Download size={11} /> Descargar PNG
+                            </button>
+                            <button
+                              onClick={() => descargarQRPDF(e, cred)}
+                              className="text-[11px] text-red-700 bg-red-50 hover:bg-red-100 font-bold flex items-center gap-1 px-2 py-1 rounded-md active:scale-95 transition-all"
+                            >
+                              <FileText size={11} /> Descargar PDF
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -300,13 +342,19 @@ export default function GestionQR() {
               <div className="pt-2 flex flex-col gap-2 print:hidden">
                 <button
                   onClick={() => descargarQR(qrModal.estudiante, qrModal.credencial)}
-                  className="w-full bg-brand-green text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                  className="w-full bg-brand-green text-white font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
                 >
-                  <Download size={16} /> Descargar Imagen QR
+                  <Download size={16} /> Descargar Imagen QR (PNG)
+                </button>
+                <button
+                  onClick={() => descargarQRPDF(qrModal.estudiante, qrModal.credencial)}
+                  className="w-full bg-red-600 text-white font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                >
+                  <FileText size={16} /> Descargar Credencial en PDF
                 </button>
                 <button
                   onClick={() => window.print()}
-                  className="w-full bg-brand-yellow text-brand-black font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                  className="w-full bg-brand-yellow text-brand-black font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
                 >
                   <Printer size={16} /> Imprimir QR
                 </button>

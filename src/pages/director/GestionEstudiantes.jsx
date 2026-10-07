@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { estudiantesService } from '../../services/estudiantes.service';
 import { ArrowLeft, Plus, Search, Loader2, User, AlertCircle, CheckCircle, X, Edit3, FileSpreadsheet, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { descargarExcel } from '../../utils/exportador';
 
 const EMPTY = { nombres: '', apellido_paterno: '', apellido_materno: '', dni: '', codigo_estudiante: '' };
 
@@ -105,33 +106,37 @@ export default function GestionEstudiantes() {
     }
   };
 
-  const descargarPlantilla = () => {
-    const datosEjemplo = [
-      {
-        Nombres: 'Juan Carlos',
-        'Apellido Paterno': 'Perez',
-        'Apellido Materno': 'Gomez',
-        DNI: '71234567',
-        Codigo: 'EST101',
-        Nivel: 'Secundaria',
-        Grado: '2',
-        Seccion: 'B'
-      },
-      {
-        Nombres: 'María Elena',
-        'Apellido Paterno': 'Quispe',
-        'Apellido Materno': 'Rojas',
-        DNI: '72345678',
-        Codigo: 'EST102',
-        Nivel: 'Secundaria',
-        Grado: '2',
-        Seccion: 'A'
-      }
-    ];
-    const ws = XLSX.utils.json_to_sheet(datosEjemplo);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes');
-    XLSX.writeFile(wb, 'Plantilla_Carga_Masiva_Estudiantes.xlsx');
+  const descargarPlantilla = async () => {
+    try {
+      const datosEjemplo = [
+        {
+          Nombres: 'Juan Carlos',
+          'Apellido Paterno': 'Perez',
+          'Apellido Materno': 'Gomez',
+          DNI: '71234567',
+          Codigo: 'EST101',
+          Nivel: 'Secundaria',
+          Grado: '2',
+          Seccion: 'B'
+        },
+        {
+          Nombres: 'María Elena',
+          'Apellido Paterno': 'Quispe',
+          'Apellido Materno': 'Rojas',
+          DNI: '72345678',
+          Codigo: 'EST102',
+          Nivel: 'Secundaria',
+          Grado: '2',
+          Seccion: 'A'
+        }
+      ];
+      const ws = XLSX.utils.json_to_sheet(datosEjemplo);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes');
+      await descargarExcel(wb, 'Plantilla_Carga_Masiva_Estudiantes.xlsx');
+    } catch (err) {
+      console.error('Error al descargar plantilla:', err);
+    }
   };
 
   return (

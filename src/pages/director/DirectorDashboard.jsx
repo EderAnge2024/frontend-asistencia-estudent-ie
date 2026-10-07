@@ -22,8 +22,8 @@ export default function DirectorDashboard() {
           asistenciaDocenteService.resumen({}).catch(() => null),
           asistenciaEstudianteService.resumen({}).catch(() => null),
         ]);
-        setResumenDoc(rDoc?.data?.data || null);
-        setResumenEst(rEst?.data?.data || null);
+        setResumenDoc(rDoc?.data?.data ?? null);
+        setResumenEst(rEst?.data?.data ?? null);
       } finally {
         setLoading(false);
       }
@@ -70,42 +70,50 @@ export default function DirectorDashboard() {
 
       <div className="px-4 pt-4 space-y-4">
         {/* Resumen docentes */}
-        {!loading && resumenDoc && (
+        {!loading && (
           <div>
             <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Docentes hoy</p>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: 'Presentes', value: resumenDoc.presentes, color: 'text-brand-green' },
-                { label: 'Tardanzas', value: resumenDoc.tardanzas, color: 'text-brand-yellow' },
-                { label: 'Faltas', value: resumenDoc.faltas, color: 'text-brand-red' },
-                { label: 'Total', value: resumenDoc.total, color: 'text-brand-blue' },
-              ].map(s => (
-                <div key={s.label} className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
-                  <p className={`text-xl font-bold ${s.color}`}>{s.value ?? 0}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
-                </div>
-              ))}
-            </div>
+            {resumenDoc ? (
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'Presentes', value: resumenDoc.presentes, color: 'text-brand-green' },
+                  { label: 'Tardanzas', value: resumenDoc.tardanzas, color: 'text-brand-yellow' },
+                  { label: 'Faltas', value: resumenDoc.faltas, color: 'text-brand-red' },
+                  { label: 'Total', value: resumenDoc.total, color: 'text-brand-blue' },
+                ].map(s => (
+                  <div key={s.label} className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
+                    <p className={`text-xl font-bold ${s.color}`}>{s.value ?? 0}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">Sin registros para hoy</p>
+            )}
           </div>
         )}
 
         {/* Resumen estudiantes */}
-        {!loading && resumenEst && (
+        {!loading && (
           <div>
             <p className="text-xs text-gray-400 font-semibold uppercase mb-2">Estudiantes hoy</p>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: 'Presentes', value: resumenEst.presentes, color: 'text-brand-green' },
-                { label: 'Tardanzas', value: resumenEst.tardanzas, color: 'text-brand-yellow' },
-                { label: 'Faltas', value: resumenEst.faltas, color: 'text-brand-red' },
-                { label: 'Total', value: resumenEst.total, color: 'text-brand-blue' },
-              ].map(s => (
-                <div key={s.label} className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
-                  <p className={`text-xl font-bold ${s.color}`}>{s.value ?? 0}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
-                </div>
-              ))}
-            </div>
+            {resumenEst ? (
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'Presentes', value: resumenEst.presentes, color: 'text-brand-green' },
+                  { label: 'Tardanzas', value: resumenEst.tardanzas, color: 'text-brand-yellow' },
+                  { label: 'Faltas', value: resumenEst.faltas, color: 'text-brand-red' },
+                  { label: 'Total', value: resumenEst.total, color: 'text-brand-blue' },
+                ].map(s => (
+                  <div key={s.label} className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
+                    <p className={`text-xl font-bold ${s.color}`}>{s.value ?? 0}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">Sin registros para hoy</p>
+            )}
           </div>
         )}
 

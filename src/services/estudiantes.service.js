@@ -7,7 +7,7 @@ export const estudiantesService = {
   crear: (data) => api.post('/estudiantes', data),
   actualizar: (id, data) => api.put(`/estudiantes/${id}`, data),
   toggleEstado: (id, estado) => api.patch(`/estudiantes/${id}/estado`, { estado }),
-  cargaMasiva: (data) => api.post('/estudiantes/carga-masiva', { estudiantes: data }),
+  cargaMasiva: (data) => api.post('/estudiantes/carga-masiva', { estudiantes: data }, { timeout: 180000 }),
   // Docente tutor: mis estudiantes
   misEstudiantes: () => api.get('/estudiantes/mis-estudiantes'),
 };

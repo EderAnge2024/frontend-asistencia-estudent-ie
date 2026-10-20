@@ -89,18 +89,38 @@ export default function GestionEstudiantes() {
 
   const procesarCargaMasiva = async () => {
     if (previaExcel.length === 0) return;
-    setProcesandoMasivo(true); setMsgMasivo(null);
+    setProcesandoMasivo(true);
+    setMsgMasivo(null);
     try {
       const res = await estudiantesService.cargaMasiva(previaExcel);
-      const data = res.data?.data;
+      const data = res.data?.data || res.data || {};
+      const insertados = data.insertados ?? 0;
+      const actualizados = data.actualizados ?? 0;
+      const matriculados = data.matriculados ?? 0;
+      const errores = data.errores || [];
+
+      let textoResultado = `🎉 ¡Carga completada! Insertados: ${insertados}, Actualizados: ${actualizados}, Matriculados: ${matriculados}.`;
+      if (errores.length > 0) {
+        textoResultado += ` (${errores.length} fila(s) omitida(s) por falta de nombres/apellidos).`;
+      }
+
       setMsgMasivo({
         ok: true,
-        texto: `🎉 ¡Carga completada! Insertados: ${data.insertados}, Actualizados: ${data.actualizados}, Matriculados: ${data.matriculados}.`
+        texto: textoResultado
       });
-      cargar();
-      setTimeout(cerrar, 2500);
+      await cargar();
+      setTimeout(cerrar, 3000);
     } catch (e) {
-      setMsgMasivo({ ok: false, texto: e.response?.data?.message || 'Error en la carga masiva.' });
+      console.error('Error al procesar carga masiva:', e);
+      let errorMsg = 'Error en la carga masiva.';
+      if (e.code === 'ECONNABORTED' || e.message?.toLowerCase().includes('timeout')) {
+        errorMsg = 'El proceso tardó más del tiempo de espera de la app. Los estudiantes se están guardando en el servidor, por favor verifica la lista.';
+      } else if (e.response?.data?.message) {
+        errorMsg = e.response.data.message;
+      } else if (e.message) {
+        errorMsg = e.message;
+      }
+      setMsgMasivo({ ok: false, texto: errorMsg });
     } finally {
       setProcesandoMasivo(false);
     }

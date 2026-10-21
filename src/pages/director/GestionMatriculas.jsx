@@ -35,13 +35,15 @@ export default function GestionMatriculas() {
   const [buscando, setBuscando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [filtroNivel, setFiltroNivel] = useState('');
   const [filtroGrado, setFiltroGrado] = useState('');
   const [filtroSeccion, setFiltroSeccion] = useState('');
 
   const cargar = async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { limit: 1000 };
+      if (filtroNivel) params.nivel = filtroNivel;
       if (filtroGrado) params.grado = filtroGrado;
       if (filtroSeccion) params.seccion = filtroSeccion;
       const res = await matriculasService.listar(params);
@@ -49,7 +51,7 @@ export default function GestionMatriculas() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { cargar(); }, [filtroGrado, filtroSeccion]);
+  useEffect(() => { cargar(); }, [filtroNivel, filtroGrado, filtroSeccion]);
 
   useEffect(() => {
     const id = searchParams.get('id_estudiante');
@@ -122,15 +124,22 @@ export default function GestionMatriculas() {
             <Plus size={16} /> Nueva
           </button>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 gap-2">
+          <select value={filtroNivel} onChange={e => { setFiltroNivel(e.target.value); setFiltroGrado(''); }}
+            className="bg-white/10 text-white text-xs sm:text-sm rounded-xl px-2 py-2 focus:outline-none">
+            <option value="" className="text-black">Todos niveles</option>
+            {NIVELES.map(n => <option key={n} value={n} className="text-black">{n}</option>)}
+          </select>
           <select value={filtroGrado} onChange={e => setFiltroGrado(e.target.value)}
-            className="flex-1 bg-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none">
-            <option value="">Todos los grados</option>
-            {Array.from(new Set(Object.values(GRADOS_POR_NIVEL).flat())).map(g => <option key={g} value={g} className="text-black">{g}</option>)}
+            className="bg-white/10 text-white text-xs sm:text-sm rounded-xl px-2 py-2 focus:outline-none">
+            <option value="" className="text-black">Todos grados</option>
+            {(filtroNivel ? GRADOS_POR_NIVEL[filtroNivel] : Array.from(new Set(Object.values(GRADOS_POR_NIVEL).flat()))).map(g => (
+              <option key={g} value={g} className="text-black">{g}</option>
+            ))}
           </select>
           <select value={filtroSeccion} onChange={e => setFiltroSeccion(e.target.value)}
-            className="flex-1 bg-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none">
-            <option value="">Todas las secciones</option>
+            className="bg-white/10 text-white text-xs sm:text-sm rounded-xl px-2 py-2 focus:outline-none">
+            <option value="" className="text-black">Todas secciones</option>
             {SECCIONES.map(s => <option key={s} value={s} className="text-black">Sección {s}</option>)}
           </select>
         </div>
@@ -142,7 +151,7 @@ export default function GestionMatriculas() {
         ) : matriculas.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <BookOpen size={48} className="mx-auto mb-3 opacity-30" />
-            <p>No hay matrículas registradas.</p>
+            <p>No hay matrículas registradas con los filtros seleccionados.</p>
           </div>
         ) : matriculas.map(m => (
           <div key={m.id_matricula} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
@@ -151,14 +160,23 @@ export default function GestionMatriculas() {
                 <p className="font-bold text-brand-black text-sm truncate">
                   {m.apellido_paterno} {m.apellido_materno}, {m.nombres}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{m.nivel} · {m.grado} · Sección {m.seccion} · {m.anio_lectivo}</p>
-                {m.dni && <p className="text-xs text-gray-400">DNI: {m.dni}</p>}
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-xs font-semibold text-brand-blue bg-blue-50 px-2 py-0.5 rounded-md">
+                    {m.nivel} · {m.grado} · Sección {m.seccion}
+                  </span>
+                  <span className="text-xs text-gray-400">Año {m.anio_lectivo}</span>
+                </div>
+                {m.dni && <p className="text-xs text-gray-400 mt-0.5">DNI: {m.dni}</p>}
                 {m.tutor_asignado ? (
-                  <p className="text-xs text-brand-blue font-semibold mt-1">
-                    👨‍🏫 Tutor: Prof. {m.tutor_asignado.nombres} {m.tutor_asignado.apellidos} ({m.tutor_asignado.grado_tutoria})
+                  <p className="text-xs text-brand-green font-semibold mt-1.5 flex items-center gap-1.5 flex-wrap">
+                    <span>👨‍🏫 Tutor:</span>
+                    <span className="text-brand-black">Prof. {m.tutor_asignado.nombres} {m.tutor_asignado.apellidos}</span>
+                    <span className="text-[10px] bg-green-100 text-brand-green px-1.5 py-0.5 rounded font-bold">
+                      {m.tutor_asignado.nivel} ({m.tutor_asignado.grado_tutoria})
+                    </span>
                   </p>
                 ) : (
-                  <p className="text-xs text-gray-400 mt-1">👨‍🏫 Tutor: Sin tutor asignado a este grado/sección</p>
+                  <p className="text-xs text-gray-400 mt-1.5 italic">👨‍🏫 Sin tutor asignado a este grado/sección ({m.nivel})</p>
                 )}
               </div>
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${ESTADO_COLOR[m.estado]}`}>{m.estado}</span>

@@ -24,6 +24,9 @@ export default function VistaAsistencias({ tipo }) {
   // Usar zona horaria Lima para que coincida con lo guardado en el servidor
   const [fecha, setFecha] = useState(() => getFechaHoyLima());
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroNivel, setFiltroNivel] = useState('');
+  const [filtroGrado, setFiltroGrado] = useState('');
+  const [filtroSeccion, setFiltroSeccion] = useState('');
 
   const cargar = useCallback(async () => {
     setLoading(true); setError('');
@@ -31,13 +34,19 @@ export default function VistaAsistencias({ tipo }) {
       const params = { fecha_inicio: fecha, fecha_fin: fecha };
       if (filtroEstado) params.estado = filtroEstado;
       let res;
-      if (tipo === 'docentes') res = await asistenciaDocenteService.porInstitucion(params);
-      else res = await asistenciaEstudianteService.porInstitucion(params);
+      if (tipo === 'docentes') {
+        res = await asistenciaDocenteService.porInstitucion(params);
+      } else {
+        if (filtroNivel) params.nivel = filtroNivel;
+        if (filtroGrado) params.grado = filtroGrado;
+        if (filtroSeccion) params.seccion = filtroSeccion;
+        res = await asistenciaEstudianteService.porInstitucion(params);
+      }
       setRegistros(res.data?.data || []);
     } catch (e) {
       setError(e.response?.data?.message || 'Error al cargar asistencias.');
     } finally { setLoading(false); }
-  }, [fecha, filtroEstado, tipo]);
+  }, [fecha, filtroEstado, filtroNivel, filtroGrado, filtroSeccion, tipo]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -80,6 +89,40 @@ export default function VistaAsistencias({ tipo }) {
               </select>
             </div>
           </div>
+
+          {tipo === 'estudiantes' && (
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                value={filtroNivel}
+                onChange={e => setFiltroNivel(e.target.value)}
+                className="w-full bg-white text-brand-black text-xs sm:text-sm rounded-xl px-2 py-2 focus:outline-none"
+              >
+                <option value="">Todos niveles</option>
+                <option value="Primaria">Primaria</option>
+                <option value="Secundaria">Secundaria</option>
+              </select>
+              <select
+                value={filtroGrado}
+                onChange={e => setFiltroGrado(e.target.value)}
+                className="w-full bg-white text-brand-black text-xs sm:text-sm rounded-xl px-2 py-2 focus:outline-none"
+              >
+                <option value="">Todos grados</option>
+                {['1', '2', '3', '4', '5', '6'].map(g => (
+                  <option key={g} value={g}>{g}°</option>
+                ))}
+              </select>
+              <select
+                value={filtroSeccion}
+                onChange={e => setFiltroSeccion(e.target.value)}
+                className="w-full bg-white text-brand-black text-xs sm:text-sm rounded-xl px-2 py-2 focus:outline-none"
+              >
+                <option value="">Todas secc.</option>
+                {['A', 'B', 'C', 'D'].map(s => (
+                  <option key={s} value={s}>Sección {s}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {/* Botón Buscar explícito */}
           <button
             onClick={cargar}

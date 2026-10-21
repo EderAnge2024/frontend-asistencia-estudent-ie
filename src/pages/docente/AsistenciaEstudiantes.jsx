@@ -419,7 +419,7 @@ export default function AsistenciaEstudiantes() {
           ) : (
             <div className="space-y-2">
               {estudiantes.map((est, i) => {
-                const yaRegistro = est._asistencia_hoy === 'PRESENTE';
+                const asistencia = est._asistencia_hoy;
                 return (
                   <div key={est.id_estudiante || i} className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 flex items-center gap-3">
                     <span className="text-xs font-semibold text-gray-400 w-5 text-center">{i + 1}</span>
@@ -427,12 +427,24 @@ export default function AsistenciaEstudiantes() {
                       <p className="font-bold text-brand-black text-sm truncate">
                         {est.apellido_paterno} {est.apellido_materno}, {est.nombres}
                       </p>
-                      {est.dni && <p className="text-xs text-gray-400">DNI: {est.dni}</p>}
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {est.dni && <p className="text-xs text-gray-400">DNI: {est.dni}</p>}
+                        {est.nivel && (
+                          <span className="text-[10px] bg-blue-50 text-brand-blue font-semibold px-1.5 py-0.5 rounded">
+                            {est.nivel} · {est.grado}° {est.seccion}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {yaRegistro ? (
-                      <span className="text-xs bg-green-100 text-brand-green font-bold px-2.5 py-1 rounded-full">
-                        ✓ Presente
+                    {asistencia ? (
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                        asistencia === 'PRESENTE' ? 'bg-green-100 text-brand-green' :
+                        asistencia === 'TARDANZA' ? 'bg-yellow-100 text-yellow-700' :
+                        asistencia === 'JUSTIFICADO' ? 'bg-blue-100 text-brand-blue' :
+                        'bg-red-100 text-brand-red'
+                      }`}>
+                        {asistencia === 'PRESENTE' ? '✓ Presente' : asistencia}
                       </span>
                     ) : (
                       <button

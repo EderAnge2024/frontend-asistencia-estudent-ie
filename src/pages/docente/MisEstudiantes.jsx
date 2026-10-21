@@ -96,9 +96,14 @@ export default function MisEstudiantes() {
               <p className="font-bold text-brand-black truncate">
                 {est.apellido_paterno} {est.apellido_materno}, {est.nombres}
               </p>
-              <div className="flex gap-3 mt-0.5">
+              <div className="flex gap-2 mt-0.5 items-center flex-wrap">
                 {est.dni && <span className="text-xs text-gray-400">DNI: {est.dni}</span>}
                 {est.codigo_estudiante && <span className="text-xs text-gray-400">Cód: {est.codigo_estudiante}</span>}
+                {est.nivel && (
+                  <span className="text-[10px] bg-blue-50 text-brand-blue font-semibold px-2 py-0.5 rounded-full">
+                    {est.nivel} · {est.grado}° {est.seccion}
+                  </span>
+                )}
               </div>
             </div>
             <UserCheck size={18} className="text-brand-green shrink-0" />

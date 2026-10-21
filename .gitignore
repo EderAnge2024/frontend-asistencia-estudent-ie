@@ -25,3 +25,14 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Android build and IDE artifacts
+android/.gradle/
+android/.idea/
+android/.kotlin/
+android/**/build/
+android/capacitor-cordova-android-plugins/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json

@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { asistenciaDocenteService } from '../../services/asistenciaDocente.service';
 import {
   LogOut, User, MapPin, Clock, CheckCircle, XCircle,
-  Users, QrCode, ClipboardList, AlertCircle, Loader2, BookOpen
+  Users, QrCode, ClipboardList, AlertCircle, Loader2, BookOpen, FileSpreadsheet
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -215,6 +215,14 @@ export default function DocenteDashboard() {
               label="Mis Estudiantes"
               color="bg-brand-lightblue text-white"
               onClick={() => navigate('/docente/mis-estudiantes')}
+            />
+          )}
+          {user?.tutor && (
+            <QuickCard
+              icon={<FileSpreadsheet size={26} />}
+              label="Informe Mensual"
+              color="bg-emerald-600 text-white"
+              onClick={() => navigate('/docente/informe-asistencia')}
             />
           )}
           <QuickCard

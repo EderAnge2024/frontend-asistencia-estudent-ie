@@ -6,7 +6,7 @@ import { asistenciaDocenteService } from '../../services/asistenciaDocente.servi
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
 import { matriculasService } from '../../services/matriculas.service';
 import { estudiantesService } from '../../services/estudiantes.service';
-import { descargarExcel, exportarTablaPDF } from '../../utils/exportador';
+import { descargarExcel, exportarTablaPDF, exportarMatrizMensualExcel, NOMBRES_MESES } from '../../utils/exportador';
 
 export default function ReportesDirector() {
   const navigate = useNavigate();
@@ -22,6 +22,14 @@ export default function ReportesDirector() {
 
   const [fechaInicioEst, setFechaInicioEst] = useState(hoyStr);
   const [fechaFinEst, setFechaFinEst] = useState(hoyStr);
+
+  // Filtros matriz mensual estudiantes (P/T/F/J por día)
+  const fechaHoy = new Date();
+  const [mesMatriz, setMesMatriz] = useState(fechaHoy.getMonth() + 1);
+  const [anioMatriz, setAnioMatriz] = useState(fechaHoy.getFullYear());
+  const [nivelMatriz, setNivelMatriz] = useState('');
+  const [gradoMatriz, setGradoMatriz] = useState('');
+  const [seccionMatriz, setSeccionMatriz] = useState('');
 
   const formatHora = (ts) => {
     if (!ts) return '--:--';
@@ -254,6 +262,49 @@ export default function ReportesDirector() {
     }
   };
 
+  // 4. Informe Mensual de Asistencia Escolar (Matriz por Mes y Grados con iniciales P/T/F/J)
+  const descargarMatrizMensual = async () => {
+    setGenerando('matriz_mensual');
+    setMsg(null);
+    try {
+      const params = {
+        mes: mesMatriz,
+        anio: anioMatriz,
+      };
+      if (nivelMatriz) params.nivel = nivelMatriz;
+      if (gradoMatriz) params.grado = gradoMatriz;
+      if (seccionMatriz) params.seccion = seccionMatriz;
+
+      const res = await asistenciaEstudianteService.informeMensual(params);
+      const datos = res.data?.data || [];
+
+      if (datos.length === 0) {
+        setMsg({ ok: false, texto: 'No se encontraron asistencias ni estudiantes para el mes seleccionado.' });
+        return;
+      }
+
+      const nombreMes = NOMBRES_MESES[mesMatriz - 1] || `MES_${mesMatriz}`;
+      const filtroTexto = [nivelMatriz, gradoMatriz ? `${gradoMatriz}°` : '', seccionMatriz ? `Secc_${seccionMatriz}` : ''].filter(Boolean).join('_');
+      const nombreArchivo = `Informe_Mensual_Asistencia_${nombreMes}_${anioMatriz}${filtroTexto ? '_' + filtroTexto : ''}.xlsx`;
+
+      await exportarMatrizMensualExcel({
+        estudiantes: datos,
+        mes: mesMatriz,
+        anio: anioMatriz,
+        tituloGeneral: `ASISTENCIA ESTUDIANTES`,
+        nombreArchivo,
+        agruparPorGradoSeccion: !gradoMatriz || !seccionMatriz,
+      });
+
+      setMsg({ ok: true, texto: `✅ Informe mensual de ${nombreMes} ${anioMatriz} descargado con éxito (${datos.length} alumnos procesados).` });
+    } catch (e) {
+      console.error(e);
+      setMsg({ ok: false, texto: e.response?.data?.message || 'Error al generar informe mensual: ' + e.message });
+    } finally {
+      setGenerando(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-6">
       <div className="bg-brand-blue text-white pt-10 pb-4 px-5 rounded-b-3xl shadow-md">
@@ -436,6 +487,112 @@ export default function ReportesDirector() {
                     <FileText size={15} />
                   )}
                   <span>PDF (.pdf)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Informe Mensual de Asistencia (Matriz por Mes y Grados - P/T/F/J) */}
+            <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-emerald-800">
+                  Informe Mensual de Asistencia (Matriz P / T / F / J)
+                </span>
+                <span className="text-[11px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
+                  Registro Escolar
+                </span>
+              </div>
+              <p className="text-xs text-gray-600">
+                Genera el formato pedagógico con días de la semana <b>(L, M, M, J, V)</b>, iniciales <b>(P/T/F/J)</b> y separado en <b>pestañas individuales por cada Grado y Sección</b>.
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="text-gray-600 font-medium block mb-1">Mes:</label>
+                  <select
+                    value={mesMatriz}
+                    onChange={(e) => setMesMatriz(parseInt(e.target.value, 10))}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700"
+                  >
+                    {NOMBRES_MESES.map((nom, idx) => (
+                      <option key={idx + 1} value={idx + 1}>
+                        {nom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-600 font-medium block mb-1">Año:</label>
+                  <select
+                    value={anioMatriz}
+                    onChange={(e) => setAnioMatriz(parseInt(e.target.value, 10))}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700"
+                  >
+                    {[anioMatriz - 1, anioMatriz, anioMatriz + 1].map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <label className="text-gray-600 font-medium block mb-1">Nivel:</label>
+                  <select
+                    value={nivelMatriz}
+                    onChange={(e) => setNivelMatriz(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700"
+                  >
+                    <option value="">Todos</option>
+                    <option value="Primaria">Primaria</option>
+                    <option value="Secundaria">Secundaria</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-600 font-medium block mb-1">Grado:</label>
+                  <select
+                    value={gradoMatriz}
+                    onChange={(e) => setGradoMatriz(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700"
+                  >
+                    <option value="">Todos</option>
+                    {['1', '2', '3', '4', '5', '6'].map((g) => (
+                      <option key={g} value={g}>
+                        {g}°
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-600 font-medium block mb-1">Sección:</label>
+                  <select
+                    value={seccionMatriz}
+                    onChange={(e) => setSeccionMatriz(e.target.value)}
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700"
+                  >
+                    <option value="">Todas</option>
+                    {['A', 'B', 'C', 'D'].map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <button
+                  onClick={descargarMatrizMensual}
+                  disabled={generando !== null}
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-3 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-md shadow-emerald-700/20 disabled:opacity-50"
+                >
+                  {generando === 'matriz_mensual' ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <FileSpreadsheet size={16} />
+                  )}
+                  <span>Descargar Registro Mensual Excel ({NOMBRES_MESES[mesMatriz - 1]} {anioMatriz})</span>
                 </button>
               </div>
             </div>

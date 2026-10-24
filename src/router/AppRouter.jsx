@@ -9,6 +9,7 @@ import DocenteDashboard from '../pages/docente/DocenteDashboard';
 import MisEstudiantes from '../pages/docente/MisEstudiantes';
 import AsistenciaEstudiantes from '../pages/docente/AsistenciaEstudiantes';
 import HistorialDocente from '../pages/docente/HistorialDocente';
+import InformeAsistenciaDocente from '../pages/docente/InformeAsistenciaDocente';
 
 // Director / Admin
 import DirectorDashboard from '../pages/director/DirectorDashboard';
@@ -75,6 +76,8 @@ export const AppRouter = () => {
         <Route path="/docente/historial" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><HistorialDocente /></RoleRoute></PrivateRoute>} />
         <Route path="/docente/historial-docente" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><HistorialDocente /></RoleRoute></PrivateRoute>} />
         <Route path="/docente/mi-historial" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><HistorialDocente /></RoleRoute></PrivateRoute>} />
+        <Route path="/docente/informe-asistencia" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><InformeAsistenciaDocente /></RoleRoute></PrivateRoute>} />
+        <Route path="/docente/informe-mensual" element={<PrivateRoute><RoleRoute roles={ROLES_DOCENTE}><InformeAsistenciaDocente /></RoleRoute></PrivateRoute>} />
 
         {/* === RUTAS DIRECTOR === */}
         <Route path="/director" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><DirectorDashboard /></RoleRoute></PrivateRoute>} />

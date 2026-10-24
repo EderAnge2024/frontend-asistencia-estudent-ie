@@ -6,4 +6,5 @@ export const asistenciaDocenteService = {
   miAsistencia: (params) => api.get('/asistencias/docentes/mia', { params }),
   porInstitucion: (params) => api.get('/asistencias/docentes', { params }),
   resumen: (params) => api.get('/asistencias/docentes/resumen', { params }),
+  cerrarDia: (fecha) => api.post('/asistencias/docentes/cerrar-dia', fecha ? { fecha } : {}),
 };

@@ -385,3 +385,174 @@ export async function exportarCredencialQRPDF({ estudiante, credencial, qrDataUr
 
   return await descargarPDF(doc, nombreArchivo);
 }
+
+export const NOMBRES_MESES = [
+  'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+  'JULIO', 'AGOSTO', 'SETIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+];
+
+/**
+ * Crea una hoja de cálculo (Worksheet) de Excel con el formato de matriz mensual
+ * idéntico al registro pedagógico escolar peruano:
+ * - Días hábiles de lunes a viernes (L, M, M, J, V)
+ * - Iniciales P (Presente), T (Tardanza), F (Falta), J (Justificado)
+ * - Totales por estudiante
+ */
+export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
+  const diasSemanaLetra = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  const diasEnMes = new Date(anio, mes, 0).getDate();
+  const diasLectivos = [];
+
+  for (let d = 1; d <= diasEnMes; d++) {
+    const fecha = new Date(anio, mes - 1, d);
+    const dayOfWeek = fecha.getDay();
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Lunes a Viernes
+      diasLectivos.push({
+        dia: d,
+        letra: diasSemanaLetra[dayOfWeek],
+      });
+    }
+  }
+
+  const nombreMes = NOMBRES_MESES[mes - 1] || `MES ${mes}`;
+  const tituloPrincipal = (tituloHoja || `ASISTENCIA ${nombreMes} ${anio}`).toUpperCase();
+
+  // Fila 0 (Excel 1): vacía
+  const r0 = [];
+  // Fila 1 (Excel 2): Título centrado
+  const r1 = ['', '', '', tituloPrincipal];
+  // Fila 2 (Excel 3): vacía
+  const r2 = [];
+  // Fila 3 (Excel 4): DIAS DE LA SEMANA
+  const r3 = ['', '', '', 'DIAS DE LA SEMANA'];
+  // Fila 4 (Excel 5): Cabecera con Letras de días
+  const r4 = ['N°', 'DNI', 'Apellidos y nombres'];
+  diasLectivos.forEach(dl => r4.push(dl.letra));
+  r4.push('TOTAL P', 'TOTAL T', 'TOTAL F', 'TOTAL J');
+
+  // Fila 5 (Excel 6): Números de días
+  const r5 = ['', '', ''];
+  diasLectivos.forEach(dl => r5.push(dl.dia));
+  r5.push('', '', '', '');
+
+  const aoa = [r0, r1, r2, r3, r4, r5];
+
+  // Filas de datos
+  estudiantes.forEach((est, idx) => {
+    const nombreCompleto = `${est.apellido_paterno || ''} ${est.apellido_materno || ''}, ${est.nombres || ''}`.trim().toUpperCase();
+    const fila = [idx + 1, est.dni || '', nombreCompleto];
+
+    let pCount = 0;
+    let tCount = 0;
+    let fCount = 0;
+    let jCount = 0;
+
+    diasLectivos.forEach(dl => {
+      const val = est.dias?.[dl.dia] || '';
+      fila.push(val);
+      if (val === 'P') pCount++;
+      else if (val === 'T') tCount++;
+      else if (val === 'F') fCount++;
+      else if (val === 'J') jCount++;
+    });
+
+    fila.push(pCount, tCount, fCount, jCount);
+    aoa.push(fila);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Configurar anchos de columnas
+  const cols = [
+    { wch: 5 },  // A: N°
+    { wch: 12 }, // B: DNI
+    { wch: 38 }, // C: Apellidos y nombres
+  ];
+  diasLectivos.forEach(() => cols.push({ wch: 4.5 }));
+  cols.push({ wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 });
+  ws['!cols'] = cols;
+
+  // Merges
+  const ultColIndex = 3 + diasLectivos.length - 1;
+  const merges = [
+    // Título principal en fila 1 (Excel fila 2): D2 a última columna
+    { s: { r: 1, c: 3 }, e: { r: 1, c: Math.max(3, ultColIndex) } },
+    // "DIAS DE LA SEMANA" en fila 3 (Excel fila 4): D4 a última columna de días
+    { s: { r: 3, c: 3 }, e: { r: 3, c: Math.max(3, ultColIndex) } },
+    // N°: merge filas 4 y 5 (r: 4, c: 0 a r: 5, c: 0)
+    { s: { r: 4, c: 0 }, e: { r: 5, c: 0 } },
+    // DNI: merge filas 4 y 5 (r: 4, c: 1 a r: 5, c: 1)
+    { s: { r: 4, c: 1 }, e: { r: 5, c: 1 } },
+    // Apellidos y nombres: merge filas 4 y 5 (r: 4, c: 2 a r: 5, c: 2)
+    { s: { r: 4, c: 2 }, e: { r: 5, c: 2 } },
+    // TOTAL P: merge filas 4 y 5
+    { s: { r: 4, c: ultColIndex + 1 }, e: { r: 5, c: ultColIndex + 1 } },
+    // TOTAL T: merge filas 4 y 5
+    { s: { r: 4, c: ultColIndex + 2 }, e: { r: 5, c: ultColIndex + 2 } },
+    // TOTAL F: merge filas 4 y 5
+    { s: { r: 4, c: ultColIndex + 3 }, e: { r: 5, c: ultColIndex + 3 } },
+    // TOTAL J: merge filas 4 y 5
+    { s: { r: 4, c: ultColIndex + 4 }, e: { r: 5, c: ultColIndex + 4 } },
+  ];
+  ws['!merges'] = merges;
+
+  return ws;
+}
+
+/**
+ * Exporta el libro de Excel con la matriz mensual (P/T/F/J por día).
+ * Si agruparPorGradoSeccion es true, crea una pestaña por cada Grado y Sección.
+ */
+export async function exportarMatrizMensualExcel({
+  estudiantes = [],
+  mes,
+  anio,
+  tituloGeneral = 'REPORTE MENSUAL DE ASISTENCIA',
+  nombreArchivo,
+  agruparPorGradoSeccion = false,
+}) {
+  const wb = XLSX.utils.book_new();
+  const nombreMes = NOMBRES_MESES[mes - 1] || `MES_${mes}`;
+
+  if (agruparPorGradoSeccion) {
+    const grupos = {};
+    estudiantes.forEach(est => {
+      const nivel = est.nivel || '';
+      const grado = est.grado ? `${est.grado}°` : '';
+      const seccion = est.seccion ? `Secc ${est.seccion}` : '';
+      const clave = `${nivel} ${grado} ${seccion}`.trim() || 'General';
+      if (!grupos[clave]) grupos[clave] = [];
+      grupos[clave].push(est);
+    });
+
+    const nombresGrupos = Object.keys(grupos);
+    if (nombresGrupos.length === 0) {
+      throw new Error('No se encontraron estudiantes para generar el reporte.');
+    }
+
+    nombresGrupos.forEach(grupo => {
+      const tituloHoja = `${grupo} - ${nombreMes} ${anio}`;
+      const ws = crearHojaMatrizMensual({
+        estudiantes: grupos[grupo],
+        mes,
+        anio,
+        tituloHoja,
+      });
+      // Pestaña máximo 31 caracteres
+      const nombrePestana = grupo.slice(0, 31).replace(/[:\\\/\?\*\[\]]/g, '_');
+      XLSX.utils.book_append_sheet(wb, ws, nombrePestana);
+    });
+  } else {
+    const ws = crearHojaMatrizMensual({
+      estudiantes,
+      mes,
+      anio,
+      tituloHoja: `${tituloGeneral} - ${nombreMes} ${anio}`,
+    });
+    const nombrePestana = `${nombreMes} ${anio}`.slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, nombrePestana);
+  }
+
+  const finalName = nombreArchivo || `Informe_Asistencia_Estudiantes_${nombreMes}_${anio}.xlsx`;
+  return await descargarExcel(wb, finalName);
+}

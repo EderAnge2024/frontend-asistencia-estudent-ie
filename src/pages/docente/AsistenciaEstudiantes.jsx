@@ -5,7 +5,7 @@ import { estudiantesService } from '../../services/estudiantes.service';
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
 import {
   ArrowLeft, QrCode, CheckCircle, XCircle, Loader2,
-  Users, Camera, CameraOff, BookOpen, AlertCircle, RefreshCw
+  Users, Camera, CameraOff, BookOpen, AlertCircle, RefreshCw, FileSpreadsheet
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { registerPlugin } from '@capacitor/core';
@@ -226,7 +226,14 @@ export default function AsistenciaEstudiantes() {
           <button onClick={() => { detenerCamara(); navigate(-1); }} className="p-2 bg-white/10 rounded-full active:scale-95">
             <ArrowLeft size={18} />
           </button>
-          <h1 className="text-lg font-bold">Control de Asistencia Estudiantil</h1>
+          <h1 className="text-lg font-bold">Control de Asistencia</h1>
+          <button
+            onClick={() => { detenerCamara(); navigate('/docente/informe-asistencia'); }}
+            className="ml-auto flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl active:scale-95 transition-all shadow-sm"
+          >
+            <FileSpreadsheet size={14} />
+            <span>Informe</span>
+          </button>
         </div>
         <div className="flex items-center gap-2 bg-white/10 rounded-xl px-4 py-2 text-sm">
           <BookOpen size={14} className="text-brand-yellow shrink-0" />

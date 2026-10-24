@@ -6,7 +6,7 @@ import { asistenciaDocenteService } from '../../services/asistenciaDocente.servi
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
 import { matriculasService } from '../../services/matriculas.service';
 import { estudiantesService } from '../../services/estudiantes.service';
-import { descargarExcel, exportarTablaPDF, exportarMatrizMensualExcel, NOMBRES_MESES } from '../../utils/exportador';
+import { descargarExcel, exportarTablaPDF, exportarMatrizMensualExcel, exportarMatrizMensualPDF, NOMBRES_MESES } from '../../utils/exportador';
 
 export default function ReportesDirector() {
   const navigate = useNavigate();
@@ -263,8 +263,8 @@ export default function ReportesDirector() {
   };
 
   // 4. Informe Mensual de Asistencia Escolar (Matriz por Mes y Grados con iniciales P/T/F/J)
-  const descargarMatrizMensual = async () => {
-    setGenerando('matriz_mensual');
+  const descargarMatrizMensual = async (formato = 'excel') => {
+    setGenerando(`matriz_${formato}`);
     setMsg(null);
     try {
       const params = {
@@ -285,18 +285,30 @@ export default function ReportesDirector() {
 
       const nombreMes = NOMBRES_MESES[mesMatriz - 1] || `MES_${mesMatriz}`;
       const filtroTexto = [nivelMatriz, gradoMatriz ? `${gradoMatriz}°` : '', seccionMatriz ? `Secc_${seccionMatriz}` : ''].filter(Boolean).join('_');
-      const nombreArchivo = `Informe_Mensual_Asistencia_${nombreMes}_${anioMatriz}${filtroTexto ? '_' + filtroTexto : ''}.xlsx`;
+      const extension = formato === 'excel' ? 'xlsx' : 'pdf';
+      const nombreArchivo = `Informe_Mensual_Asistencia_${nombreMes}_${anioMatriz}${filtroTexto ? '_' + filtroTexto : ''}.${extension}`;
 
-      await exportarMatrizMensualExcel({
-        estudiantes: datos,
-        mes: mesMatriz,
-        anio: anioMatriz,
-        tituloGeneral: `ASISTENCIA ESTUDIANTES`,
-        nombreArchivo,
-        agruparPorGradoSeccion: !gradoMatriz || !seccionMatriz,
-      });
+      if (formato === 'excel') {
+        await exportarMatrizMensualExcel({
+          estudiantes: datos,
+          mes: mesMatriz,
+          anio: anioMatriz,
+          tituloGeneral: `ASISTENCIA ESTUDIANTES`,
+          nombreArchivo,
+          agruparPorGradoSeccion: !gradoMatriz || !seccionMatriz,
+        });
+      } else {
+        await exportarMatrizMensualPDF({
+          estudiantes: datos,
+          mes: mesMatriz,
+          anio: anioMatriz,
+          tituloGeneral: `ASISTENCIA ESTUDIANTES`,
+          nombreArchivo,
+          agruparPorGradoSeccion: !gradoMatriz || !seccionMatriz,
+        });
+      }
 
-      setMsg({ ok: true, texto: `✅ Informe mensual de ${nombreMes} ${anioMatriz} descargado con éxito (${datos.length} alumnos procesados).` });
+      setMsg({ ok: true, texto: `✅ Informe mensual (${formato.toUpperCase()}) de ${nombreMes} ${anioMatriz} descargado con éxito (${datos.length} alumnos procesados).` });
     } catch (e) {
       console.error(e);
       setMsg({ ok: false, texto: e.response?.data?.message || 'Error al generar informe mensual: ' + e.message });
@@ -581,18 +593,30 @@ export default function ReportesDirector() {
                 </div>
               </div>
 
-              <div className="pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
-                  onClick={descargarMatrizMensual}
+                  onClick={() => descargarMatrizMensual('excel')}
                   disabled={generando !== null}
-                  className="w-full flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-3 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-md shadow-emerald-700/20 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-md shadow-emerald-700/20 disabled:opacity-50"
                 >
-                  {generando === 'matriz_mensual' ? (
-                    <Loader2 size={16} className="animate-spin" />
+                  {generando === 'matriz_excel' ? (
+                    <Loader2 size={15} className="animate-spin" />
                   ) : (
-                    <FileSpreadsheet size={16} />
+                    <FileSpreadsheet size={15} />
                   )}
-                  <span>Descargar Registro Mensual Excel ({NOMBRES_MESES[mesMatriz - 1]} {anioMatriz})</span>
+                  <span>Excel (.xlsx)</span>
+                </button>
+                <button
+                  onClick={() => descargarMatrizMensual('pdf')}
+                  disabled={generando !== null}
+                  className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-md shadow-red-600/20 disabled:opacity-50"
+                >
+                  {generando === 'matriz_pdf' ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <FileText size={15} />
+                  )}
+                  <span>PDF (.pdf)</span>
                 </button>
               </div>
             </div>

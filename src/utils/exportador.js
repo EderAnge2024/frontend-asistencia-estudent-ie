@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
@@ -496,12 +496,146 @@ export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
   ];
   ws['!merges'] = merges;
 
+  // Aplicar estilos y colores idénticos al registro pedagógico escolar
+  const bordeGris = { style: 'thin', color: { rgb: 'D0D7DE' } };
+  const bordes = { top: bordeGris, bottom: bordeGris, left: bordeGris, right: bordeGris };
+
+  // Fila 1 (Excel fila 2): Título centrado
+  const refTitulo = XLSX.utils.encode_cell({ r: 1, c: 3 });
+  if (ws[refTitulo]) {
+    ws[refTitulo].s = {
+      font: { name: 'Calibri', sz: 14, bold: true, color: { rgb: '0F5132' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    };
+  }
+
+  // Fila 3 (Excel fila 4): DIAS DE LA SEMANA
+  const refDiasSemana = XLSX.utils.encode_cell({ r: 3, c: 3 });
+  if (ws[refDiasSemana]) {
+    ws[refDiasSemana].s = {
+      fill: { fgColor: { rgb: '0F5132' } }, // Verde oscuro oficial
+      font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: bordes,
+    };
+  }
+
+  // Fila 4 (Excel fila 5): Cabeceras
+  for (let c = 0; c < 3; c++) {
+    const ref = XLSX.utils.encode_cell({ r: 4, c });
+    if (ws[ref]) {
+      ws[ref].s = {
+        fill: { fgColor: { rgb: '0F5132' } },
+        font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: bordes,
+      };
+    }
+  }
+  diasLectivos.forEach((_, i) => {
+    const ref = XLSX.utils.encode_cell({ r: 4, c: 3 + i });
+    if (ws[ref]) {
+      ws[ref].s = {
+        fill: { fgColor: { rgb: '198754' } }, // Verde medio
+        font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: bordes,
+      };
+    }
+  });
+  for (let c = ultColIndex + 1; c <= ultColIndex + 4; c++) {
+    const ref = XLSX.utils.encode_cell({ r: 4, c });
+    if (ws[ref]) {
+      ws[ref].s = {
+        fill: { fgColor: { rgb: '0F5132' } },
+        font: { name: 'Calibri', sz: 9, bold: true, color: { rgb: 'FFFFFF' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: bordes,
+      };
+    }
+  }
+
+  // Fila 5 (Excel fila 6): Números de días (fondo verde suave)
+  diasLectivos.forEach((_, i) => {
+    const ref = XLSX.utils.encode_cell({ r: 5, c: 3 + i });
+    if (ws[ref]) {
+      ws[ref].s = {
+        fill: { fgColor: { rgb: 'D1E7DD' } },
+        font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0F5132' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: bordes,
+      };
+    }
+  });
+
+  // Filas de datos de estudiantes
+  estudiantes.forEach((est, idx) => {
+    const r = 6 + idx;
+    const refNum = XLSX.utils.encode_cell({ r, c: 0 });
+    if (ws[refNum]) ws[refNum].s = { alignment: { horizontal: 'center' }, border: bordes, font: { sz: 9.5 } };
+
+    const refDni = XLSX.utils.encode_cell({ r, c: 1 });
+    if (ws[refDni]) ws[refDni].s = { alignment: { horizontal: 'center' }, border: bordes, font: { sz: 9.5 } };
+
+    const refNom = XLSX.utils.encode_cell({ r, c: 2 });
+    if (ws[refNom]) ws[refNom].s = { alignment: { horizontal: 'left' }, border: bordes, font: { sz: 9.5 } };
+
+    diasLectivos.forEach((dl, i) => {
+      const c = 3 + i;
+      const ref = XLSX.utils.encode_cell({ r, c });
+      const val = est.dias?.[dl.dia] || '';
+      if (!ws[ref]) ws[ref] = { t: 's', v: '' };
+
+      if (val === 'P') {
+        ws[ref].s = {
+          fill: { fgColor: { rgb: 'D1E7DD' } }, // Verde suave
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0F5132' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: bordes,
+        };
+      } else if (val === 'T') {
+        ws[ref].s = {
+          fill: { fgColor: { rgb: 'FFF3CD' } }, // Amarillo suave
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '856404' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: bordes,
+        };
+      } else if (val === 'F') {
+        ws[ref].s = {
+          fill: { fgColor: { rgb: 'F8D7DA' } }, // Rojo suave
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '842029' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: bordes,
+        };
+      } else if (val === 'J') {
+        ws[ref].s = {
+          fill: { fgColor: { rgb: 'CFF4FC' } }, // Celeste suave
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '055160' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: bordes,
+        };
+      } else {
+        ws[ref].s = { alignment: { horizontal: 'center' }, border: bordes };
+      }
+    });
+
+    for (let c = ultColIndex + 1; c <= ultColIndex + 4; c++) {
+      const ref = XLSX.utils.encode_cell({ r, c });
+      if (ws[ref]) {
+        ws[ref].s = {
+          alignment: { horizontal: 'center' },
+          border: bordes,
+          font: { bold: true, sz: 9.5 },
+        };
+      }
+    }
+  });
+
   return ws;
 }
 
 /**
- * Exporta el libro de Excel con la matriz mensual (P/T/F/J por día).
- * Si agruparPorGradoSeccion es true, crea una pestaña por cada Grado y Sección.
+ * Exporta el libro de Excel con la matriz mensual coloreada (P/T/F/J por día).
  */
 export async function exportarMatrizMensualExcel({
   estudiantes = [],
@@ -538,7 +672,6 @@ export async function exportarMatrizMensualExcel({
         anio,
         tituloHoja,
       });
-      // Pestaña máximo 31 caracteres
       const nombrePestana = grupo.slice(0, 31).replace(/[:\\\/\?\*\[\]]/g, '_');
       XLSX.utils.book_append_sheet(wb, ws, nombrePestana);
     });
@@ -555,4 +688,138 @@ export async function exportarMatrizMensualExcel({
 
   const finalName = nombreArchivo || `Informe_Asistencia_Estudiantes_${nombreMes}_${anio}.xlsx`;
   return await descargarExcel(wb, finalName);
+}
+
+/**
+ * Exporta el informe mensual en PDF (formato horizontal A4) con las celdas coloreadas.
+ */
+export async function exportarMatrizMensualPDF({
+  estudiantes = [],
+  mes,
+  anio,
+  tituloGeneral = 'REPORTE MENSUAL DE ASISTENCIA',
+  nombreArchivo,
+  agruparPorGradoSeccion = false,
+}) {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const nombreMes = NOMBRES_MESES[mes - 1] || `MES_${mes}`;
+  const diasSemanaLetra = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  const diasEnMes = new Date(anio, mes, 0).getDate();
+  const diasLectivos = [];
+
+  for (let d = 1; d <= diasEnMes; d++) {
+    const fecha = new Date(anio, mes - 1, d);
+    const dayOfWeek = fecha.getDay();
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      diasLectivos.push({ dia: d, letra: diasSemanaLetra[dayOfWeek] });
+    }
+  }
+
+  let tablas = [];
+  if (agruparPorGradoSeccion) {
+    const grupos = {};
+    estudiantes.forEach(est => {
+      const nivel = est.nivel || '';
+      const grado = est.grado ? `${est.grado}°` : '';
+      const seccion = est.seccion ? `Secc ${est.seccion}` : '';
+      const clave = `${nivel} ${grado} ${seccion}`.trim() || 'General';
+      if (!grupos[clave]) grupos[clave] = [];
+      grupos[clave].push(est);
+    });
+    tablas = Object.keys(grupos).map(k => ({
+      titulo: `${k} - ${nombreMes} ${anio}`,
+      lista: grupos[k],
+    }));
+  } else {
+    tablas = [{
+      titulo: `${tituloGeneral} - ${nombreMes} ${anio}`,
+      lista: estudiantes,
+    }];
+  }
+
+  tablas.forEach((t, tIdx) => {
+    if (tIdx > 0) doc.addPage('a4', 'landscape');
+
+    // Cabecera institucional
+    doc.setFillColor(15, 81, 50); // Verde oscuro
+    doc.rect(0, 0, 297, 18, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.titulo, 10, 8);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Leyenda: P = Presente (Verde) · T = Tardanza (Amarillo) · F = Falta (Rojo) · J = Justificado (Celeste)`, 10, 14);
+
+    const columnas = ['N°', 'DNI', 'Apellidos y nombres', ...diasLectivos.map(dl => `${dl.letra}\n${dl.dia}`), 'P', 'T', 'F', 'J'];
+
+    const filas = t.lista.map((est, idx) => {
+      const nombre = `${est.apellido_paterno || ''} ${est.apellido_materno || ''}, ${est.nombres || ''}`.trim();
+      let pCount = 0, tCount = 0, fCount = 0, jCount = 0;
+      const celdasDias = diasLectivos.map(dl => {
+        const v = est.dias?.[dl.dia] || '';
+        if (v === 'P') pCount++;
+        else if (v === 'T') tCount++;
+        else if (v === 'F') fCount++;
+        else if (v === 'J') jCount++;
+        return v;
+      });
+      return [idx + 1, est.dni || '', nombre, ...celdasDias, pCount, tCount, fCount, jCount];
+    });
+
+    autoTable(doc, {
+      startY: 21,
+      head: [columnas],
+      body: filas,
+      theme: 'grid',
+      styles: {
+        fontSize: 6.5,
+        cellPadding: 0.8,
+        halign: 'center',
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [15, 81, 50],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 6.5,
+      },
+      columnStyles: {
+        0: { cellWidth: 7 },
+        1: { cellWidth: 15 },
+        2: { cellWidth: 40, halign: 'left' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const val = String(data.cell.raw || '');
+          if (val === 'P') {
+            data.cell.styles.fillColor = [209, 231, 221]; // verde claro
+            data.cell.styles.textColor = [15, 81, 50];    // verde oscuro
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val === 'T') {
+            data.cell.styles.fillColor = [255, 243, 205]; // amarillo claro
+            data.cell.styles.textColor = [133, 100, 4];   // marrón/dorado
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val === 'F') {
+            data.cell.styles.fillColor = [248, 215, 218]; // rojo claro
+            data.cell.styles.textColor = [132, 32, 41];   // rojo oscuro
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val === 'J') {
+            data.cell.styles.fillColor = [207, 244, 252]; // celeste
+            data.cell.styles.textColor = [5, 81, 96];     // azul oscuro
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      },
+      margin: { left: 6, right: 6 },
+    });
+  });
+
+  const finalName = nombreArchivo || `Informe_Asistencia_Estudiantes_${nombreMes}_${anio}.pdf`;
+  return await descargarPDF(doc, finalName);
 }

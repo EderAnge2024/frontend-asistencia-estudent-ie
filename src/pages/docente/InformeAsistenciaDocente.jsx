@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
-import { exportarMatrizMensualExcel, NOMBRES_MESES } from '../../utils/exportador';
+import { exportarMatrizMensualExcel, exportarMatrizMensualPDF, NOMBRES_MESES } from '../../utils/exportador';
 import {
-  ArrowLeft, FileSpreadsheet, Loader2, CheckCircle,
+  ArrowLeft, FileSpreadsheet, FileText, Loader2, CheckCircle,
   AlertCircle, Calendar, BookOpen, Download
 } from 'lucide-react';
 
@@ -22,8 +22,8 @@ export default function InformeAsistenciaDocente() {
     ? `${user.nivel || 'Nivel'} · ${user.grado || 'Grado'} · Sección ${user.seccion || 'Única'}`
     : 'No asignado como tutor';
 
-  const descargarInforme = async () => {
-    setGenerando(true);
+  const descargarInforme = async (formato = 'excel') => {
+    setGenerando(`informe_${formato}`);
     setMsg(null);
     try {
       const params = {
@@ -50,21 +50,33 @@ export default function InformeAsistenciaDocente() {
       const gradoLimpio = user?.grado ? `${user.grado}°` : '';
       const seccionLimpia = user?.seccion ? `SECCION ${user.seccion}` : '';
       const tituloGeneral = `${nivelLimpio} ${gradoLimpio} ${seccionLimpia}`.trim();
+      const extension = formato === 'excel' ? 'xlsx' : 'pdf';
 
-      const nombreArchivo = `Informe_Asistencia_${tituloGeneral.replace(/\s+/g, '_')}_${nombreMes}_${anio}.xlsx`;
+      const nombreArchivo = `Informe_Asistencia_${tituloGeneral.replace(/\s+/g, '_')}_${nombreMes}_${anio}.${extension}`;
 
-      await exportarMatrizMensualExcel({
-        estudiantes,
-        mes,
-        anio,
-        tituloGeneral,
-        nombreArchivo,
-        agruparPorGradoSeccion: false,
-      });
+      if (formato === 'excel') {
+        await exportarMatrizMensualExcel({
+          estudiantes,
+          mes,
+          anio,
+          tituloGeneral,
+          nombreArchivo,
+          agruparPorGradoSeccion: false,
+        });
+      } else {
+        await exportarMatrizMensualPDF({
+          estudiantes,
+          mes,
+          anio,
+          tituloGeneral,
+          nombreArchivo,
+          agruparPorGradoSeccion: false,
+        });
+      }
 
       setMsg({
         ok: true,
-        texto: `✅ Informe de ${nombreMes} ${anio} generado con éxito (${estudiantes.length} estudiantes).`,
+        texto: `✅ Informe (${formato.toUpperCase()}) de ${nombreMes} ${anio} generado con éxito (${estudiantes.length} estudiantes).`,
       });
     } catch (e) {
       console.error(e);
@@ -73,7 +85,7 @@ export default function InformeAsistenciaDocente() {
         texto: e.response?.data?.message || 'Error al generar informe: ' + e.message,
       });
     } finally {
-      setGenerando(false);
+      setGenerando(null);
     }
   };
 
@@ -184,22 +196,32 @@ export default function InformeAsistenciaDocente() {
             </p>
           </div>
 
-          <button
-            onClick={descargarInforme}
-            disabled={generando || !user?.tutor}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
-          >
-            {generando ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Download size={18} />
-            )}
-            <span>
-              {generando
-                ? 'Generando informe Excel...'
-                : `Descargar Informe (${NOMBRES_MESES[mes - 1]} ${anio})`}
-            </span>
-          </button>
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <button
+              onClick={() => descargarInforme('excel')}
+              disabled={generando !== null || !user?.tutor}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 text-xs sm:text-sm"
+            >
+              {generando === 'informe_excel' ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <FileSpreadsheet size={18} />
+              )}
+              <span>Excel (.xlsx)</span>
+            </button>
+            <button
+              onClick={() => descargarInforme('pdf')}
+              disabled={generando !== null || !user?.tutor}
+              className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all shadow-md shadow-red-600/20 disabled:opacity-50 text-xs sm:text-sm"
+            >
+              {generando === 'informe_pdf' ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <FileText size={18} />
+              )}
+              <span>PDF (.pdf)</span>
+            </button>
+          </div>
 
           {!user?.tutor && (
             <p className="text-xs text-center text-brand-red font-semibold">

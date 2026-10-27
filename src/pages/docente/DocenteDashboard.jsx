@@ -92,6 +92,17 @@ export default function DocenteDashboard() {
   const yaEntro  = !!asistenciaHoy?.hora_entrada;
   const yaSalio  = !!asistenciaHoy?.hora_salida;
 
+  const esTutor = Boolean(
+    user?.tutor === true ||
+    String(user?.tutor).toLowerCase() === 'true' ||
+    String(user?.tutor).toLowerCase() === 'si' ||
+    String(user?.tutor).toLowerCase() === 't' ||
+    user?.tutor === 1 ||
+    user?.tutor === '1' ||
+    !!user?.grado_tutoria ||
+    (user?.grado && user?.seccion)
+  );
+
   const formatHora = (ts) => ts
     ? new Date(ts).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
     : '--:--';
@@ -118,11 +129,11 @@ export default function DocenteDashboard() {
         </div>
 
         {/* Sección asignada */}
-        {user?.tutor && (
+        {esTutor && (
           <div className="mt-4 bg-white/10 rounded-xl px-4 py-2 flex items-center gap-2">
             <BookOpen size={16} className="text-brand-yellow shrink-0" />
             <span className="text-sm font-semibold">
-              {user.nivel} · {user.grado} · Sección {user.seccion}
+              {user?.nivel || 'Nivel'} · {user?.grado ? `${user.grado}°` : 'Grado'} · Sección {user?.seccion || 'Única'}
             </span>
             <span className="ml-auto text-xs bg-brand-yellow text-brand-black px-2 py-0.5 rounded-full font-bold">Tutor</span>
           </div>
@@ -201,7 +212,7 @@ export default function DocenteDashboard() {
 
         {/* Accesos rápidos */}
         <div className="grid grid-cols-2 gap-3 pt-1">
-          {user?.tutor && (
+          {esTutor && (
             <QuickCard
               icon={<QrCode size={26} />}
               label="Asistencia Estudiantes"
@@ -209,7 +220,7 @@ export default function DocenteDashboard() {
               onClick={() => navigate('/docente/asistencia-estudiantes')}
             />
           )}
-          {user?.tutor && (
+          {esTutor && (
             <QuickCard
               icon={<Users size={26} />}
               label="Mis Estudiantes"
@@ -217,7 +228,7 @@ export default function DocenteDashboard() {
               onClick={() => navigate('/docente/mis-estudiantes')}
             />
           )}
-          {user?.tutor && (
+          {esTutor && (
             <QuickCard
               icon={<FileSpreadsheet size={26} />}
               label="Informe Mensual"

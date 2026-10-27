@@ -33,43 +33,62 @@ async function guardarYCompartirNativo({ nombreArchivo, dataBase64, mimeType, ti
 
   let savedFile;
   try {
-    // 1. Intentar escribir en el directorio Documents del dispositivo
-    savedFile = await Filesystem.writeFile({
-      path: nombreArchivo,
-      data: dataBase64,
-      directory: Directory.Documents,
-      recursive: true,
-    });
-  } catch (docErr) {
-    console.warn('No se pudo guardar en Documents, usando Cache:', docErr);
-    // Fallback a Cache (siempre accesible sin restricciones de permisos)
+    // 1. Guardar primero en Cache (siempre permitido sin restricciones de almacenamiento en Android 10-15)
     savedFile = await Filesystem.writeFile({
       path: nombreArchivo,
       data: dataBase64,
       directory: Directory.Cache,
       recursive: true,
     });
+  } catch (cacheErr) {
+    console.warn('No se pudo guardar en Cache, intentando Documents:', cacheErr);
+    // Fallback a Documents
+    try {
+      savedFile = await Filesystem.writeFile({
+        path: nombreArchivo,
+        data: dataBase64,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+    } catch (docErr) {
+      console.error('Error al guardar archivo en el sistema de archivos:', docErr);
+      throw new Error('No se pudo guardar el archivo en el dispositivo: ' + (docErr.message || cacheErr.message));
+    }
   }
 
-  // 2. Invocar diálogo nativo de Android (Guardar en Drive, Guardar en Archivos, Compartir en WhatsApp, etc.)
+  // 2. Invocar diálogo nativo de Android/iOS con el archivo adjunto (FileProvider)
   try {
+    // Nota: en @capacitor/share para Android, `files: [savedFile.uri]` adjunta el archivo físico
+    // a través del FileProvider. Si se pasa `text` sin `files`, Android lo comparte como texto plano.
     await Share.share({
       title: titulo || nombreArchivo,
-      text: texto || `Descarga de archivo: ${nombreArchivo}`,
-      url: savedFile.uri,
+      files: [savedFile.uri],
       dialogTitle: `Guardar o compartir ${nombreArchivo}`,
     });
     return { ok: true, metodo: 'share', uri: savedFile.uri };
   } catch (shareErr) {
-    if (
-      shareErr.name === 'AbortError' ||
-      shareErr.message?.toLowerCase().includes('cancel') ||
-      shareErr.message?.toLowerCase().includes('dismiss')
-    ) {
+    // Si falla el share con `files`, intentar con `url` como fallback
+    try {
+      await Share.share({
+        title: titulo || nombreArchivo,
+        url: savedFile.uri,
+        dialogTitle: `Guardar o compartir ${nombreArchivo}`,
+      });
+      return { ok: true, metodo: 'share_url', uri: savedFile.uri };
+    } catch (shareErr2) {
+      if (
+        shareErr.name === 'AbortError' ||
+        shareErr.message?.toLowerCase().includes('cancel') ||
+        shareErr.message?.toLowerCase().includes('dismiss') ||
+        shareErr2.name === 'AbortError' ||
+        shareErr2.message?.toLowerCase().includes('cancel') ||
+        shareErr2.message?.toLowerCase().includes('dismiss')
+      ) {
+        return { ok: true, metodo: 'guardado_local', uri: savedFile.uri };
+      }
+      console.warn('Share nativo finalizó con aviso:', shareErr2);
       return { ok: true, metodo: 'guardado_local', uri: savedFile.uri };
     }
-    console.warn('Share nativo finalizó:', shareErr);
-    return { ok: true, metodo: 'guardado_local', uri: savedFile.uri };
   }
 }
 

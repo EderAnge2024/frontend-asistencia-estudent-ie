@@ -239,9 +239,22 @@ export default function VistaAsistencias({ tipo }) {
                   {r.metodo_entrada && ` · (${r.metodo_entrada})`}
                 </p>
               </div>
-              <span className={`text-xs font-bold px-3 py-1 rounded-full shrink-0 ${ESTADO_COLOR[r.estado_asistencia] || 'bg-gray-100 text-gray-500'}`}>
-                {r.estado_asistencia}
-              </span>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <span className={`text-xs font-bold px-3 py-1 rounded-full ${ESTADO_COLOR[r.estado_asistencia] || 'bg-gray-100 text-gray-500'}`}>
+                  {r.estado_asistencia}
+                </span>
+                {tipo === 'estudiantes' && r.estado_asistencia !== 'FALTA' && (
+                  r.hora_salida ? (
+                    <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md">
+                      ✓ Toda la clase
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">
+                      Salida pendiente
+                    </span>
+                  )
+                )}
+              </div>
             </div>
           ))
         )}

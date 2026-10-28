@@ -5,7 +5,8 @@ import { estudiantesService } from '../../services/estudiantes.service';
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
 import {
   ArrowLeft, QrCode, CheckCircle, XCircle, Loader2,
-  Users, Camera, CameraOff, BookOpen, AlertCircle, RefreshCw, FileSpreadsheet
+  Users, Camera, CameraOff, BookOpen, AlertCircle, RefreshCw, FileSpreadsheet,
+  LogIn, LogOut, Info
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { registerPlugin } from '@capacitor/core';
@@ -19,10 +20,11 @@ export default function AsistenciaEstudiantes() {
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
   const [tokenQR, setTokenQR] = useState('');
-  const [resultado, setResultado] = useState(null); // { ok, mensaje, data }
+  const [resultado, setResultado] = useState(null); // { ok, mensaje, data, esSalida, esCompleto }
   const [error, setError] = useState('');
   const [camaraActiva, setCamaraActiva] = useState(false);
   const [iniciandoCamara, setIniciandoCamara] = useState(false);
+  const [modoRegistro, setModoRegistro] = useState('INGRESO'); // 'INGRESO' | 'SALIDA'
   
   const inputRef = useRef(null);
   const html5QrCodeRef = useRef(null);
@@ -63,24 +65,35 @@ export default function AsistenciaEstudiantes() {
       const res = await asistenciaEstudianteService.registrarQR({
         token_qr: token.trim(),
         dispositivo: 'Cámara Móvil / Lector QR',
+        modo: modoRegistro, // Enviar modo explícito: 'INGRESO' o 'SALIDA'
       });
       const data = res.data?.data;
+      const esSalida = data?._accion === 'SALIDA' || modoRegistro === 'SALIDA';
+      const nombreEstudiante = `${data?.nombres || ''} ${data?.apellido_paterno || ''}`.trim();
+      const horaFormateada = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+
       setResultado({
         ok: true,
-        mensaje: `Asistencia Registrada: ${data?.nombres || ''} ${data?.apellido_paterno || ''}`.trim() || 'Asistencia registrada con éxito',
-        data
+        esSalida,
+        mensaje: esSalida
+          ? `✅ Salida registrada: ${nombreEstudiante || 'Estudiante'}` 
+          : `✅ Ingreso registrado: ${nombreEstudiante || 'Estudiante'}`,
+        hora: horaFormateada,
+        data,
       });
       setTokenQR('');
       cargarEstudiantes();
     } catch (e) {
-      const msg = e.response?.data?.message || 'Error al registrar asistencia por QR.';
-      setResultado({ ok: false, mensaje: msg });
+      const codigo = e.response?.data?.code || e.response?.data?.errorCode;
+      const msg    = e.response?.data?.message || 'Error al procesar asistencia por QR.';
+      setResultado({
+        ok: codigo === 'ATTENDANCE_COMPLETE',
+        esCompleto: codigo === 'ATTENDANCE_COMPLETE',
+        mensaje: msg,
+      });
     } finally {
       setRegistrando(false);
-      // Auto ocultar resultado luego de 4 segundos
-      setTimeout(() => {
-        setResultado(prev => (prev?.mensaje === token ? null : prev));
-      }, 4000);
+      setTimeout(() => setResultado(null), 5000);
     }
   };
 
@@ -97,12 +110,35 @@ export default function AsistenciaEstudiantes() {
       await asistenciaEstudianteService.registrarManual({
         id_estudiante,
         estado_asistencia: 'PRESENTE',
+        modo: 'INGRESO',
       });
-      setResultado({ ok: true, mensaje: 'Asistencia manual registrada correctamente.' });
+      setResultado({
+        ok: true,
+        esSalida: false,
+        mensaje: 'Ingreso manual registrado correctamente.',
+        hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+      });
       cargarEstudiantes();
-      setTimeout(() => setResultado(null), 3000);
+      setTimeout(() => setResultado(null), 4000);
     } catch (e) {
-      setError(e.response?.data?.message || 'Error al registrar asistencia manual.');
+      setError(e.response?.data?.message || 'Error al registrar ingreso manual.');
+    }
+  };
+
+  const registrarSalidaManual = async (id_estudiante) => {
+    setError('');
+    try {
+      await asistenciaEstudianteService.registrarSalida(id_estudiante);
+      setResultado({
+        ok: true,
+        esSalida: true,
+        mensaje: 'Salida manual registrada correctamente.',
+        hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+      });
+      cargarEstudiantes();
+      setTimeout(() => setResultado(null), 4000);
+    } catch (e) {
+      setError(e.response?.data?.message || 'Error al registrar salida.');
     }
   };
 
@@ -264,26 +300,50 @@ export default function AsistenciaEstudiantes() {
         )}
 
         {/* Mensaje de Resultado de Escaneo */}
-        {resultado && (
-          <div className={`flex items-center gap-3 rounded-2xl px-4 py-4 shadow-md border text-sm font-semibold transition-all
-            ${resultado.ok
-              ? 'bg-green-50 border-brand-green text-brand-green'
-              : 'bg-red-50 border-brand-red text-brand-red'}`}
-          >
-            {resultado.ok
-              ? <CheckCircle size={24} className="shrink-0 text-brand-green" />
-              : <XCircle size={24} className="shrink-0 text-brand-red" />
-            }
-            <div className="flex-1 min-w-0">
-              <p className="font-bold">{resultado.mensaje}</p>
-              {resultado.ok && resultado.data && (
-                <p className="font-normal text-xs mt-0.5 text-gray-600">
-                  Hora: {new Date().toLocaleTimeString('es-PE')} · Estado: {resultado.data.estado_asistencia || 'PRESENTE'}
-                </p>
-              )}
+        {resultado && (() => {
+          const esCompleto = resultado.esCompleto;
+          const esSalida   = resultado.esSalida;
+          const esError    = !resultado.ok && !esCompleto;
+
+          const clases = esCompleto
+            ? 'bg-blue-50 border-blue-400 text-blue-700'
+            : esSalida
+              ? 'bg-orange-50 border-orange-400 text-orange-700'
+              : resultado.ok
+                ? 'bg-green-50 border-brand-green text-brand-green'
+                : 'bg-red-50 border-brand-red text-brand-red';
+
+          const Icono = esCompleto
+            ? AlertCircle
+            : esSalida
+              ? CheckCircle
+              : resultado.ok
+                ? CheckCircle
+                : XCircle;
+
+          const iconColor = esCompleto
+            ? 'text-blue-500'
+            : esSalida
+              ? 'text-orange-500'
+              : resultado.ok
+                ? 'text-brand-green'
+                : 'text-brand-red';
+
+          return (
+            <div className={`flex items-center gap-3 rounded-2xl px-4 py-4 shadow-md border text-sm font-semibold transition-all ${clases}`}>
+              <Icono size={24} className={`shrink-0 ${iconColor}`} />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold">{resultado.mensaje}</p>
+                {resultado.ok && resultado.hora && (
+                  <p className="font-normal text-xs mt-0.5 text-gray-600">
+                    Hora: {resultado.hora}
+                    {resultado.data?.estado_asistencia && ` · Estado: ${resultado.data.estado_asistencia}`}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-brand-red rounded-xl px-4 py-3 text-brand-red text-sm">
@@ -291,16 +351,76 @@ export default function AsistenciaEstudiantes() {
           </div>
         )}
 
+        {/* SELECTOR EXPLICITO DE DOS BOTONES: INGRESO Y SALIDA */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 space-y-2">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1 flex items-center justify-between">
+            <span>Acción a registrar:</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              modoRegistro === 'INGRESO' ? 'bg-blue-100 text-brand-blue' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {modoRegistro === 'INGRESO' ? 'Modo Ingreso Activo' : 'Modo Salida Activo'}
+            </span>
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setModoRegistro('INGRESO');
+                setError('');
+              }}
+              className={`py-3 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                modoRegistro === 'INGRESO'
+                  ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20 ring-2 ring-brand-blue/30'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/80 hover:text-gray-900'
+              }`}
+            >
+              <LogIn size={18} className={modoRegistro === 'INGRESO' ? 'text-brand-yellow' : 'text-gray-400'} />
+              <span>1. Ingreso</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setModoRegistro('SALIDA');
+                setError('');
+              }}
+              className={`py-3 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                modoRegistro === 'SALIDA'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20 ring-2 ring-amber-600/30'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200/80 hover:text-gray-900'
+              }`}
+            >
+              <LogOut size={18} className={modoRegistro === 'SALIDA' ? 'text-amber-200' : 'text-gray-400'} />
+              <span>2. Salida</span>
+            </button>
+          </div>
+
+          <p className={`text-[11px] font-medium px-2 py-1.5 rounded-lg flex items-center gap-1.5 ${
+            modoRegistro === 'INGRESO' ? 'bg-blue-50/70 text-brand-blue' : 'bg-amber-50/70 text-amber-900'
+          }`}>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${modoRegistro === 'INGRESO' ? 'bg-brand-blue' : 'bg-amber-600'} animate-pulse`}></span>
+            <span>
+              {modoRegistro === 'INGRESO'
+                ? 'Al presionar Ingreso, el escaneo y los registros manuales SOLO registran hora de entrada.'
+                : 'Al presionar Salida, el escaneo y los registros manuales SOLO registran hora de salida.'}
+            </span>
+          </p>
+        </div>
+
         {/* MÓDULO DE ESCÁNER POR CÁMARA */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Camera size={20} className="text-brand-blue" />
-              <p className="font-bold text-brand-black text-sm">Escáner QR con Cámara</p>
+              <Camera size={20} className={modoRegistro === 'INGRESO' ? 'text-brand-blue' : 'text-amber-600'} />
+              <p className="font-bold text-brand-black text-sm">
+                Escáner QR para {modoRegistro === 'INGRESO' ? 'Ingreso' : 'Salida'}
+              </p>
             </div>
             {camaraActiva && (
-              <span className="text-[11px] bg-green-100 text-brand-green font-semibold px-2 py-0.5 rounded-full animate-pulse">
-                Cámara en vivo
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full animate-pulse ${
+                modoRegistro === 'INGRESO' ? 'bg-green-100 text-brand-green' : 'bg-amber-100 text-amber-800'
+              }`}>
+                Cámara ({modoRegistro})
               </span>
             )}
           </div>
@@ -361,7 +481,9 @@ export default function AsistenciaEstudiantes() {
             className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all
               ${camaraActiva
                 ? 'bg-red-50 text-brand-red border border-red-200 hover:bg-red-100'
-                : 'bg-brand-blue text-white shadow-md shadow-brand-blue/20 hover:bg-blue-900'}`}
+                : modoRegistro === 'INGRESO'
+                  ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/20 hover:bg-blue-900'
+                  : 'bg-amber-600 text-white shadow-md shadow-amber-600/20 hover:bg-amber-700'}`}
           >
             {iniciandoCamara ? (
               <>
@@ -375,8 +497,8 @@ export default function AsistenciaEstudiantes() {
               </>
             ) : (
               <>
-                <Camera size={18} />
-                <span>Activar Cámara para Escanear</span>
+                {modoRegistro === 'INGRESO' ? <LogIn size={18} /> : <LogOut size={18} />}
+                <span>Activar Cámara para {modoRegistro === 'INGRESO' ? 'Registrar Ingreso' : 'Registrar Salida'}</span>
               </>
             )}
           </button>
@@ -384,13 +506,13 @@ export default function AsistenciaEstudiantes() {
           {/* Input de texto alternativo / pistola lectora */}
           <div className="pt-2 border-t border-gray-100">
             <p className="text-xs text-gray-500 font-medium mb-1.5 flex items-center gap-1">
-              <QrCode size={14} className="text-gray-400" /> O ingresa el código del token manualmente:
+              <QrCode size={14} className="text-gray-400" /> O ingresa el código del token manualmente ({modoRegistro}):
             </p>
             <form onSubmit={handleFormSubmit} className="flex gap-2">
               <input
                 ref={inputRef}
                 className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                placeholder="Token o código QR..."
+                placeholder={modoRegistro === 'INGRESO' ? "Token o código QR para ingreso..." : "Token o código QR para salida..."}
                 value={tokenQR}
                 onChange={e => setTokenQR(e.target.value)}
                 disabled={registrando}
@@ -398,9 +520,17 @@ export default function AsistenciaEstudiantes() {
               <button
                 type="submit"
                 disabled={registrando || !tokenQR.trim()}
-                className="bg-brand-yellow text-brand-black px-4 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all"
+                className={`px-4 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all text-white ${
+                  modoRegistro === 'INGRESO' ? 'bg-brand-blue hover:bg-blue-900' : 'bg-amber-600 hover:bg-amber-700'
+                }`}
               >
-                {registrando ? <Loader2 size={16} className="animate-spin" /> : 'OK'}
+                {registrando ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : modoRegistro === 'INGRESO' ? (
+                  'Ingreso'
+                ) : (
+                  'Salida'
+                )}
               </button>
             </form>
           </div>
@@ -427,6 +557,7 @@ export default function AsistenciaEstudiantes() {
             <div className="space-y-2">
               {estudiantes.map((est, i) => {
                 const asistencia = est._asistencia_hoy;
+                const tieneSalida = Boolean(est._hora_salida_hoy);
                 return (
                   <div key={est.id_estudiante || i} className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 flex items-center gap-3">
                     <span className="text-xs font-semibold text-gray-400 w-5 text-center">{i + 1}</span>
@@ -441,25 +572,59 @@ export default function AsistenciaEstudiantes() {
                             {est.nivel} · {est.grado}° {est.seccion}
                           </span>
                         )}
+                        {tieneSalida && (
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.2 rounded border border-emerald-200">
+                            ✓ Toda la clase
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {asistencia ? (
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                        asistencia === 'PRESENTE' ? 'bg-green-100 text-brand-green' :
-                        asistencia === 'TARDANZA' ? 'bg-yellow-100 text-yellow-700' :
-                        asistencia === 'JUSTIFICADO' ? 'bg-blue-100 text-brand-blue' :
-                        'bg-red-100 text-brand-red'
-                      }`}>
-                        {asistencia === 'PRESENTE' ? '✓ Presente' : asistencia}
-                      </span>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                            asistencia === 'PRESENTE' ? 'bg-green-100 text-brand-green' :
+                            asistencia === 'TARDANZA' ? 'bg-yellow-100 text-yellow-700' :
+                            asistencia === 'JUSTIFICADO' ? 'bg-blue-100 text-brand-blue' :
+                            'bg-red-100 text-brand-red'
+                          }`}>
+                            {asistencia === 'PRESENTE' ? '✓ Presente' : asistencia}
+                          </span>
+
+                          {!tieneSalida && modoRegistro === 'SALIDA' && (
+                            <button
+                              onClick={() => registrarSalidaManual(est.id_estudiante)}
+                              className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-2.5 py-1 rounded-lg active:scale-95 transition-all flex items-center gap-1 shadow-sm"
+                              title="Registrar salida de este estudiante"
+                            >
+                              <LogOut size={12} /> Salida
+                            </button>
+                          )}
+                        </div>
+
+                        {est._hora_entrada_hoy && (
+                          <span className="text-[10px] text-gray-400">
+                            ↑ {new Date(est._hora_entrada_hoy).toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'})}
+                            {tieneSalida
+                              ? ` · ↓ ${new Date(est._hora_salida_hoy).toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'})}`
+                              : ' · Salida pend.'}
+                          </span>
+                        )}
+                      </div>
                     ) : (
-                      <button
-                        onClick={() => registrarManual(est.id_estudiante)}
-                        className="text-xs bg-brand-green/10 text-brand-green font-semibold px-3 py-1.5 rounded-lg active:scale-95 transition-all hover:bg-brand-green/20"
-                      >
-                        ✓ Manual
-                      </button>
+                      modoRegistro === 'INGRESO' ? (
+                        <button
+                          onClick={() => registrarManual(est.id_estudiante)}
+                          className="text-xs bg-brand-green/10 text-brand-green font-semibold px-3 py-1.5 rounded-lg active:scale-95 transition-all hover:bg-brand-green/20 flex items-center gap-1"
+                        >
+                          <LogIn size={12} /> ✓ Ingreso
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-gray-400 italic bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
+                          Sin ingreso
+                        </span>
+                      )
                     )}
                   </div>
                 );

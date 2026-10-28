@@ -128,22 +128,32 @@ export default function ReportesDirector() {
       }
 
       if (formato === 'excel') {
-        const filasExcel = datos.map((e, index) => ({
-          'N°': index + 1,
-          'DNI': e.dni || '',
-          'Apellido Paterno': e.apellido_paterno || '',
-          'Apellido Materno': e.apellido_materno || '',
-          'Nombres': e.nombres || '',
-          'Nivel': e.nivel || '',
-          'Grado': e.grado || '',
-          'Sección': e.seccion || '',
-          'Fecha': formatFecha(e.fecha),
-          'Hora Entrada': formatHora(e.hora_entrada),
-          'Hora Salida': formatHora(e.hora_salida),
-          'Estado Asistencia': e.estado_asistencia || '',
-          'Método': e.metodo_entrada || 'QR',
-          'Observaciones': e.observacion || '',
-        }));
+        const filasExcel = datos.map((e, index) => {
+          let permanencia = 'Inasistencia';
+          if (e.hora_entrada && e.hora_salida) {
+            permanencia = 'Toda la clase (Completa)';
+          } else if (e.hora_entrada) {
+            permanencia = 'Salida pendiente (Incompleta)';
+          }
+
+          return {
+            'N°': index + 1,
+            'DNI': e.dni || '',
+            'Apellido Paterno': e.apellido_paterno || '',
+            'Apellido Materno': e.apellido_materno || '',
+            'Nombres': e.nombres || '',
+            'Nivel': e.nivel || '',
+            'Grado': e.grado || '',
+            'Sección': e.seccion || '',
+            'Fecha': formatFecha(e.fecha),
+            'Hora Entrada': formatHora(e.hora_entrada),
+            'Hora Salida': formatHora(e.hora_salida),
+            'Estado Asistencia': e.estado_asistencia || '',
+            'Permanencia': permanencia,
+            'Método': e.metodo_registro || e.metodo_entrada || 'QR',
+            'Observaciones': e.observaciones || e.observacion || '',
+          };
+        });
 
         const ws = XLSX.utils.json_to_sheet(filasExcel);
         const wb = XLSX.utils.book_new();
@@ -153,18 +163,27 @@ export default function ReportesDirector() {
         await descargarExcel(wb, nombreArchivo);
         setMsg({ ok: true, texto: `✅ Reporte Excel de estudiantes descargado/compartido (${datos.length} registros).` });
       } else {
-        const columnasPDF = ['N°', 'DNI', 'Estudiante', 'Grado/Secc', 'Fecha', 'Entrada', 'Salida', 'Estado', 'Método'];
-        const filasPDF = datos.map((e, index) => [
-          index + 1,
-          e.dni || '',
-          `${e.apellido_paterno || ''} ${e.apellido_materno || ''}, ${e.nombres || ''}`.trim(),
-          `${e.grado || ''} ${e.seccion || ''} (${e.nivel || ''})`.trim(),
-          formatFecha(e.fecha),
-          formatHora(e.hora_entrada),
-          formatHora(e.hora_salida),
-          e.estado_asistencia || '',
-          e.metodo_entrada || 'QR',
-        ]);
+        const columnasPDF = ['N°', 'DNI', 'Estudiante', 'Grado/Secc', 'Fecha', 'Entrada', 'Salida', 'Estado', 'Permanencia'];
+        const filasPDF = datos.map((e, index) => {
+          let permanencia = 'Inasistencia';
+          if (e.hora_entrada && e.hora_salida) {
+            permanencia = 'Toda la clase';
+          } else if (e.hora_entrada) {
+            permanencia = 'Sin salida';
+          }
+
+          return [
+            index + 1,
+            e.dni || '',
+            `${e.apellido_paterno || ''} ${e.apellido_materno || ''}, ${e.nombres || ''}`.trim(),
+            `${e.grado || ''} ${e.seccion || ''} (${e.nivel || ''})`.trim(),
+            formatFecha(e.fecha),
+            formatHora(e.hora_entrada),
+            formatHora(e.hora_salida),
+            e.estado_asistencia || '',
+            permanencia,
+          ];
+        });
         const nombreArchivo = `Reporte_Asistencia_Estudiantes_${fechaInicioEst}_al_${fechaFinEst}.pdf`;
         await exportarTablaPDF({
           titulo: 'REPORTE DE ASISTENCIA DE ESTUDIANTES',

@@ -8,7 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL || `http://${defaultHost}:5000/api/
 
 export const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 30000,  // 30s — necesario para despertar Render (free tier puede tardar hasta 50s)
 });
 
 // Interceptor para inyectar el token

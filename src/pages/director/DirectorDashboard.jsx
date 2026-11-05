@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { asistenciaDocenteService } from '../../services/asistenciaDocente.service';
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
 import {
-  LogOut, User, MapPin, Users, QrCode, Settings,
-  CalendarDays, ClipboardList, BarChart3, BookOpen, Loader2, ChevronRight
+  LogOut, User, Users, QrCode, Settings,
+  CalendarDays, ClipboardList, BarChart3, BookOpen, Loader2, ChevronRight, UserCheck
 } from 'lucide-react';
 
 export default function DirectorDashboard() {
@@ -34,11 +34,12 @@ export default function DirectorDashboard() {
   const hoy = new Date().toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const menus = [
+    { icon: <UserCheck size={22} />, label: 'Registro de Asistencia de Estudiantes', path: '/director/registro-asistencia-estudiantes', color: 'text-emerald-700 bg-emerald-100/70', badge: 'NUEVO' },
     { icon: <Users size={22} />, label: 'Estudiantes', path: '/director/estudiantes', color: 'text-brand-blue bg-blue-50' },
     { icon: <BookOpen size={22} />, label: 'Matrículas', path: '/director/matriculas', color: 'text-purple-600 bg-purple-50' },
     { icon: <QrCode size={22} />, label: 'Credenciales QR', path: '/director/qr', color: 'text-brand-yellow bg-yellow-50' },
     { icon: <ClipboardList size={22} />, label: 'Asistencia Docentes', path: '/director/asistencia-docentes', color: 'text-brand-green bg-green-50' },
-    { icon: <ClipboardList size={22} />, label: 'Asistencia Estudiantes', path: '/director/asistencia-estudiantes', color: 'text-brand-lightblue bg-sky-50' },
+    { icon: <ClipboardList size={22} />, label: 'Historial Asistencia Estudiantes', path: '/director/asistencia-estudiantes', color: 'text-brand-lightblue bg-sky-50' },
     { icon: <CalendarDays size={22} />, label: 'Horarios', path: '/director/horarios', color: 'text-orange-500 bg-orange-50' },
     { icon: <CalendarDays size={22} />, label: 'Eventos', path: '/director/eventos', color: 'text-pink-500 bg-pink-50' },
     { icon: <Settings size={22} />, label: 'Configuración', path: '/director/configuracion', color: 'text-gray-500 bg-gray-50' },
@@ -51,7 +52,7 @@ export default function DirectorDashboard() {
       <div className="bg-brand-blue text-white pt-10 pb-5 px-5 rounded-b-3xl shadow-lg">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-xl font-bold text-brand-yellow">AsistenciaDoc</h1>
-          <button onClick={logout} className="p-2 bg-white/10 rounded-full active:scale-95">
+          <button onClick={logout} className="p-2 bg-white/10 rounded-full active:scale-95 transition-all">
             <LogOut size={18} />
           </button>
         </div>
@@ -129,11 +130,20 @@ export default function DirectorDashboard() {
               <button
                 key={m.path}
                 onClick={() => navigate(m.path)}
-                className="w-full flex items-center gap-4 px-4 py-4 active:bg-gray-50 transition-all"
+                className="w-full flex items-center gap-4 px-4 py-4 active:bg-gray-50 transition-all text-left"
               >
                 <div className={`p-2.5 rounded-xl ${m.color}`}>{m.icon}</div>
-                <span className="flex-1 text-left font-semibold text-brand-black text-sm">{m.label}</span>
-                <ChevronRight size={16} className="text-gray-300" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-brand-black text-sm">{m.label}</span>
+                    {m.badge && (
+                      <span className="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full uppercase">
+                        {m.badge}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-gray-300 shrink-0" />
               </button>
             ))}
           </div>

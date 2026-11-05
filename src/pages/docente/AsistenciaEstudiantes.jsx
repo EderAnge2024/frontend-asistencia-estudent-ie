@@ -107,16 +107,18 @@ export default function AsistenciaEstudiantes() {
   const registrarManual = async (id_estudiante) => {
     setError('');
     try {
-      await asistenciaEstudianteService.registrarManual({
+      const res = await asistenciaEstudianteService.registrarManual({
         id_estudiante,
-        estado_asistencia: 'PRESENTE',
         modo: 'INGRESO',
       });
+      const data = res.data?.data;
+      const estadoCalc = data?.estado_asistencia || 'PRESENTE';
       setResultado({
         ok: true,
         esSalida: false,
-        mensaje: 'Ingreso manual registrado correctamente.',
+        mensaje: `Ingreso manual registrado (${estadoCalc}).`,
         hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        data,
       });
       cargarEstudiantes();
       setTimeout(() => setResultado(null), 4000);

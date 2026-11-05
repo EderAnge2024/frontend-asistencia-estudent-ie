@@ -16,6 +16,7 @@ import DirectorDashboard from '../pages/director/DirectorDashboard';
 import GestionEstudiantes from '../pages/director/GestionEstudiantes';
 import GestionMatriculas from '../pages/director/GestionMatriculas';
 import GestionQR from '../pages/director/GestionQR';
+import RegistroAsistenciaEstudiantesDirector from '../pages/director/RegistroAsistenciaEstudiantesDirector';
 import VistaAsistencias from '../pages/director/VistaAsistencias';
 import ConfiguracionAsistencia from '../pages/director/ConfiguracionAsistencia';
 import GestionHorarios from '../pages/director/GestionHorarios';
@@ -60,10 +61,10 @@ export const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* PÃºblico */}
+        {/* Público */}
         <Route path="/login" element={<PublicRoute><LoginScreen /></PublicRoute>} />
 
-        {/* RedirecciÃ³n automÃ¡tica */}
+        {/* Redirección automática */}
         <Route path="/dashboard" element={<PrivateRoute><DashboardRedirect /></PrivateRoute>} />
 
         {/* === RUTAS DOCENTE === */}
@@ -81,6 +82,8 @@ export const AppRouter = () => {
 
         {/* === RUTAS DIRECTOR === */}
         <Route path="/director" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><DirectorDashboard /></RoleRoute></PrivateRoute>} />
+        <Route path="/director/registro-asistencia-estudiantes" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><RegistroAsistenciaEstudiantesDirector /></RoleRoute></PrivateRoute>} />
+        <Route path="/director/registro-asistencia" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><RegistroAsistenciaEstudiantesDirector /></RoleRoute></PrivateRoute>} />
         <Route path="/director/estudiantes" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><GestionEstudiantes /></RoleRoute></PrivateRoute>} />
         <Route path="/director/matriculas" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><GestionMatriculas /></RoleRoute></PrivateRoute>} />
         <Route path="/director/qr" element={<PrivateRoute><RoleRoute roles={ROLES_DIRECTOR}><GestionQR /></RoleRoute></PrivateRoute>} />
@@ -99,4 +102,3 @@ export const AppRouter = () => {
     </BrowserRouter>
   );
 };
-

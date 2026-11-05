@@ -447,12 +447,12 @@ export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
   // Fila 4 (Excel 5): Cabecera con Letras de días
   const r4 = ['N°', 'DNI', 'Apellidos y nombres'];
   diasLectivos.forEach(dl => r4.push(dl.letra));
-  r4.push('TOTAL P', 'TOTAL T', 'TOTAL F', 'TOTAL J', 'TODA LA CLASE');
+  r4.push('TOTAL P', 'TOTAL T', 'TOTAL F', 'TOTAL J', 'TODA LA CLASE', 'SITUACIÓN / ALERTA');
 
   // Fila 5 (Excel 6): Números de días
   const r5 = ['', '', ''];
   diasLectivos.forEach(dl => r5.push(dl.dia));
-  r5.push('', '', '', '', '');
+  r5.push('', '', '', '', '', '');
 
   const aoa = [r0, r1, r2, r3, r4, r5];
 
@@ -491,7 +491,18 @@ export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
       if (det && det.completa) completasCount++;
     });
 
-    fila.push(pCount, tCount, fCount, jCount, completasCount);
+    // Control y alertas institucionales de inasistencias
+    const faltasTotales = Math.max(fCount, est.total_faltas_acumuladas || 0);
+    let situacion = 'NORMAL';
+    if (faltasTotales >= 54) {
+      situacion = 'RETIRO (54+ FALTAS)';
+    } else if (faltasTotales > 4) {
+      situacion = `CRÍTICO (${faltasTotales} FALTAS)`;
+    } else if (faltasTotales === 4) {
+      situacion = 'ALERTA (4 FALTAS)';
+    }
+
+    fila.push(pCount, tCount, fCount, jCount, completasCount, situacion);
     aoa.push(fila);
   });
 
@@ -504,14 +515,14 @@ export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
     { wch: 38 }, // C: Apellidos y nombres
   ];
   diasLectivos.forEach(() => cols.push({ wch: 4.5 }));
-  cols.push({ wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 14 });
+  cols.push({ wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 14 }, { wch: 22 });
   ws['!cols'] = cols;
 
   // Merges
   const ultColIndex = 3 + diasLectivos.length - 1;
   const merges = [
     // Título principal en fila 1 (Excel fila 2): D2 a última columna
-    { s: { r: 1, c: 3 }, e: { r: 1, c: Math.max(3, ultColIndex + 5) } },
+    { s: { r: 1, c: 3 }, e: { r: 1, c: Math.max(3, ultColIndex + 6) } },
     // "DIAS DE LA SEMANA" en fila 3 (Excel fila 4): D4 a última columna de días
     { s: { r: 3, c: 3 }, e: { r: 3, c: Math.max(3, ultColIndex) } },
     // N°: merge filas 4 y 5 (r: 4, c: 0 a r: 5, c: 0)
@@ -530,6 +541,8 @@ export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
     { s: { r: 4, c: ultColIndex + 4 }, e: { r: 5, c: ultColIndex + 4 } },
     // TODA LA CLASE (JORNADAS COMPLETAS): merge filas 4 y 5
     { s: { r: 4, c: ultColIndex + 5 }, e: { r: 5, c: ultColIndex + 5 } },
+    // SITUACIÓN / ALERTA: merge filas 4 y 5
+    { s: { r: 4, c: ultColIndex + 6 }, e: { r: 5, c: ultColIndex + 6 } },
   ];
   ws['!merges'] = merges;
 
@@ -580,7 +593,7 @@ export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
       };
     }
   });
-  for (let c = ultColIndex + 1; c <= ultColIndex + 5; c++) {
+  for (let c = ultColIndex + 1; c <= ultColIndex + 6; c++) {
     const ref = XLSX.utils.encode_cell({ r: 4, c });
     if (ws[ref]) {
       ws[ref].s = {
@@ -680,14 +693,51 @@ export function crearHojaMatrizMensual({ estudiantes, mes, anio, tituloHoja }) {
       }
     });
 
-    for (let c = ultColIndex + 1; c <= ultColIndex + 5; c++) {
+    // Calcular faltas acumuladas y aplicar estilos de alertas en Excel
+    let fCountLocal = 0;
+    diasLectivos.forEach(dl => {
+      if (est.dias?.[dl.dia] === 'F') fCountLocal++;
+    });
+    const faltasTotales = Math.max(fCountLocal, est.total_faltas_acumuladas || 0);
+
+    for (let c = ultColIndex + 1; c <= ultColIndex + 6; c++) {
       const ref = XLSX.utils.encode_cell({ r, c });
       if (ws[ref]) {
-        ws[ref].s = {
-          alignment: { horizontal: 'center' },
-          border: bordes,
-          font: { bold: true, sz: 9.5 },
-        };
+        // Columnas especiales: TOTAL F (c = ultColIndex + 3) y SITUACIÓN (c = ultColIndex + 6)
+        const esColFalta = c === ultColIndex + 3;
+        const esColSituacion = c === ultColIndex + 6;
+
+        if ((esColFalta || esColSituacion) && faltasTotales >= 54) {
+          // Condición RETIRO (54 o más faltas acumuladas) -> Granate oscuro con texto blanco
+          ws[ref].s = {
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: bordes,
+            fill: { fgColor: { rgb: '721C24' } },
+            font: { name: 'Calibri', sz: 9.5, bold: true, color: { rgb: 'FFFFFF' } },
+          };
+        } else if ((esColFalta || esColSituacion) && faltasTotales > 4) {
+          // Alerta Roja Destacada (>4 faltas) -> Rojo intenso con texto blanco
+          ws[ref].s = {
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: bordes,
+            fill: { fgColor: { rgb: 'DC3545' } },
+            font: { name: 'Calibri', sz: 9.5, bold: true, color: { rgb: 'FFFFFF' } },
+          };
+        } else if ((esColFalta || esColSituacion) && faltasTotales === 4) {
+          // Alerta Roja preventiva (exactamente 4 faltas) -> Rojo suave con texto rojo oscuro
+          ws[ref].s = {
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: bordes,
+            fill: { fgColor: { rgb: 'F8D7DA' } },
+            font: { name: 'Calibri', sz: 9.5, bold: true, color: { rgb: '842029' } },
+          };
+        } else {
+          ws[ref].s = {
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: bordes,
+            font: { bold: true, sz: 9.5 },
+          };
+        }
       }
     }
   });
@@ -815,9 +865,9 @@ export async function exportarMatrizMensualPDF({
     doc.text(t.titulo, 10, 8);
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Leyenda: P = Presente (Toda la clase) · P* = Salida pendiente · T = Tardanza · F = Falta · J = Justificado · Toda = Días con entrada y salida`, 10, 14);
+    doc.text(`Leyenda: P = Presente · P* = Salida pend. · T = Tardanza · F = Falta · J = Justificado · Alertas: 4 Faltas (Rojo), >4 (Crítico), 54+ (RETIRO)`, 10, 14);
 
-    const columnas = ['N°', 'DNI', 'Apellidos y nombres', ...diasLectivos.map(dl => `${dl.letra}\n${dl.dia}`), 'P', 'T', 'F', 'J', 'Toda'];
+    const columnas = ['N°', 'DNI', 'Apellidos y nombres', ...diasLectivos.map(dl => `${dl.letra}\n${dl.dia}`), 'P', 'T', 'F', 'J', 'Toda', 'Situación'];
 
     const filas = t.lista.map((est, idx) => {
       const nombre = `${est.apellido_paterno || ''} ${est.apellido_materno || ''}, ${est.nombres || ''}`.trim();
@@ -844,7 +894,18 @@ export async function exportarMatrizMensualPDF({
         }
         return '';
       });
-      return [idx + 1, est.dni || '', nombre, ...celdasDias, pCount, tCount, fCount, jCount, completasCount];
+
+      const faltasTotales = Math.max(fCount, est.total_faltas_acumuladas || 0);
+      let situacionTexto = 'NORMAL';
+      if (faltasTotales >= 54) {
+        situacionTexto = 'RETIRO (54+)';
+      } else if (faltasTotales > 4) {
+        situacionTexto = `CRÍTICO (${faltasTotales})`;
+      } else if (faltasTotales === 4) {
+        situacionTexto = 'ALERTA (4)';
+      }
+
+      return [idx + 1, est.dni || '', nombre, ...celdasDias, pCount, tCount, fCount, jCount, completasCount, situacionTexto];
     });
 
     autoTable(doc, {
@@ -867,7 +928,7 @@ export async function exportarMatrizMensualPDF({
       columnStyles: {
         0: { cellWidth: 7 },
         1: { cellWidth: 15 },
-        2: { cellWidth: 40, halign: 'left' },
+        2: { cellWidth: 38, halign: 'left' },
       },
       didParseCell: (data) => {
         if (data.section === 'body') {
@@ -895,6 +956,18 @@ export async function exportarMatrizMensualPDF({
           } else if (val === 'J') {
             data.cell.styles.fillColor = [207, 244, 252]; // celeste claro
             data.cell.styles.textColor = [5, 81, 96];     // azul verdoso
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val.startsWith('RETIRO')) {
+            data.cell.styles.fillColor = [114, 28, 36];   // granate oscuro
+            data.cell.styles.textColor = [255, 255, 255]; // texto blanco
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val.startsWith('CRÍTICO')) {
+            data.cell.styles.fillColor = [220, 53, 69];   // rojo alerta intenso
+            data.cell.styles.textColor = [255, 255, 255]; // texto blanco
+            data.cell.styles.fontStyle = 'bold';
+          } else if (val.startsWith('ALERTA')) {
+            data.cell.styles.fillColor = [248, 215, 218]; // rojo suave
+            data.cell.styles.textColor = [132, 32, 41];   // texto rojo oscuro
             data.cell.styles.fontStyle = 'bold';
           }
         }

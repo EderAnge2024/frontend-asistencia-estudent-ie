@@ -5,7 +5,7 @@ import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante
 import {
   ArrowLeft, QrCode, CheckCircle, XCircle, Loader2,
   Users, Camera, CameraOff, Search, AlertCircle, RefreshCw,
-  LogIn, LogOut, UserCheck, Clock, ShieldCheck
+  LogIn, LogOut, UserCheck, Clock, ShieldCheck, Edit3, Trash2, X
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { registerPlugin } from '@capacitor/core';
@@ -37,6 +37,12 @@ export default function RegistroAsistenciaEstudiantesDirector() {
   const [filtroNivel, setFiltroNivel] = useState('');
   const [filtroGrado, setFiltroGrado] = useState('');
   const [filtroSeccion, setFiltroSeccion] = useState('');
+
+  // Edición / Corrección de asistencia por error
+  const [estudianteAEditar, setEstudianteAEditar] = useState(null);
+  const [nuevoEstadoEditar, setNuevoEstadoEditar] = useState('PRESENTE');
+  const [observacionEditar, setObservacionEditar] = useState('');
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   // Cargar estudiantes de la institución
   const cargarEstudiantes = useCallback(async () => {
@@ -181,6 +187,62 @@ export default function RegistroAsistenciaEstudiantesDirector() {
       setError(e.response?.data?.message || 'Error al registrar salida.');
     } finally {
       setRegistrando(false);
+    }
+  };
+
+  // Abrir modal de edición/corrección para un estudiante con asistencia
+  const abrirModalEditar = (est) => {
+    setEstudianteAEditar(est);
+    setNuevoEstadoEditar(est._asistencia_hoy || 'PRESENTE');
+    setObservacionEditar('');
+    setError('');
+  };
+
+  // Guardar corrección de estado
+  const handleGuardarEdicion = async () => {
+    if (!estudianteAEditar) return;
+    setGuardandoEdicion(true);
+    setError('');
+    try {
+      const idAsistencia = estudianteAEditar._id_asistencia || estudianteAEditar.id_estudiante;
+      await asistenciaEstudianteService.actualizar(idAsistencia, {
+        estado_asistencia: nuevoEstadoEditar,
+        observaciones: observacionEditar.trim() || undefined,
+      });
+      setResultado({
+        ok: true,
+        mensaje: `✅ Asistencia de ${estudianteAEditar.nombres} actualizada a ${nuevoEstadoEditar}.`,
+      });
+      setEstudianteAEditar(null);
+      cargarEstudiantes();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al actualizar asistencia.');
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  // Anular / eliminar registro de asistencia (por error)
+  const handleEliminarAsistencia = async () => {
+    if (!estudianteAEditar) return;
+    const nombre = `${estudianteAEditar.apellido_paterno || ''} ${estudianteAEditar.nombres || ''}`.trim();
+    if (!window.confirm(`¿Estás seguro de anular/eliminar la asistencia de hoy de ${nombre}? El estudiante volverá a quedar "Sin Registro".`)) return;
+
+    setGuardandoEdicion(true);
+    setError('');
+    try {
+      const idAsistencia = estudianteAEditar._id_asistencia || estudianteAEditar.id_estudiante;
+      await asistenciaEstudianteService.eliminar(idAsistencia);
+      setResultado({
+        ok: true,
+        mensaje: `✅ Asistencia de ${nombre} anulada correctamente (estudiante sin registro).`,
+      });
+      setEstudianteAEditar(null);
+      cargarEstudiantes();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error al anular asistencia.');
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -710,6 +772,16 @@ export default function RegistroAsistenciaEstudiantesDirector() {
                             {asistencia === 'PRESENTE' ? '✓ Presente' : asistencia}
                           </span>
 
+                          <button
+                            type="button"
+                            onClick={() => abrirModalEditar(est)}
+                            disabled={registrando}
+                            className="p-1.5 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg active:scale-95 transition-all"
+                            title="Editar o corregir asistencia (cambiar a Falta/Justificado o Anular)"
+                          >
+                            <Edit3 size={15} />
+                          </button>
+
                           {!tieneSalida && modoRegistro === 'SALIDA' && (
                             <button
                               onClick={() => registrarSalidaManual(est.id_estudiante)}
@@ -768,6 +840,92 @@ export default function RegistroAsistenciaEstudiantesDirector() {
           )}
         </div>
       </div>
+
+      {/* Modal para Editar o Corregir Asistencia por Error */}
+      {estudianteAEditar && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setEstudianteAEditar(null)}>
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-base text-brand-black flex items-center gap-1.5">
+                  <Edit3 size={18} className="text-brand-blue" />
+                  <span>Corregir Asistencia</span>
+                </h3>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                  {estudianteAEditar.apellido_paterno} {estudianteAEditar.apellido_materno || ''}, {estudianteAEditar.nombres}
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  {estudianteAEditar.nivel} · {estudianteAEditar.grado}° {estudianteAEditar.seccion}
+                </p>
+              </div>
+              <button onClick={() => setEstudianteAEditar(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-gray-600 uppercase block">Seleccionar nuevo estado:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { val: 'FALTA', label: '❌ Falta', desc: 'No vino / Inasistencia', color: 'border-red-300 text-brand-red bg-red-50/70' },
+                  { val: 'JUSTIFICADO', label: 'ℹ️ Justificado', desc: 'Inasistencia con justificación', color: 'border-blue-300 text-brand-blue bg-blue-50/70' },
+                  { val: 'PRESENTE', label: '✓ Presente', desc: 'Asistió puntualmente', color: 'border-green-300 text-brand-green bg-green-50/70' },
+                  { val: 'TARDANZA', label: '⏰ Tardanza', desc: 'Llegó después de tolerancia', color: 'border-yellow-300 text-yellow-800 bg-yellow-50/70' },
+                ].map(op => {
+                  const activo = nuevoEstadoEditar === op.val;
+                  return (
+                    <button
+                      key={op.val}
+                      type="button"
+                      onClick={() => setNuevoEstadoEditar(op.val)}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        activo ? `${op.color} ring-2 ring-brand-blue shadow-sm font-bold` : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <p className="text-sm font-bold">{op.label}</p>
+                      <p className="text-[10px] text-gray-500 font-normal leading-tight mt-0.5">{op.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 uppercase block mb-1">Motivo / Observación (Opcional):</label>
+                <input
+                  type="text"
+                  value={observacionEditar}
+                  onChange={e => setObservacionEditar(e.target.value)}
+                  placeholder="Ej. Se corrigió: el alumno no vino hoy"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t">
+              <button
+                type="button"
+                disabled={guardandoEdicion}
+                onClick={handleGuardarEdicion}
+                className="w-full bg-brand-blue hover:bg-blue-900 text-white py-3 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {guardandoEdicion ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                <span>Guardar Corrección</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={guardandoEdicion}
+                onClick={handleEliminarAsistencia}
+                className="w-full bg-red-50 text-brand-red hover:bg-red-100 border border-red-200 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                title="Elimina el registro de hoy para que el estudiante vuelva a figurar como Sin Registro"
+              >
+                <Trash2 size={14} />
+                <span>Anular Registro (Dejar como "Sin Registro")</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

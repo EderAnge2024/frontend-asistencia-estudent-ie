@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { asistenciaDocenteService } from '../../services/asistenciaDocente.service';
 import { asistenciaEstudianteService } from '../../services/asistenciaEstudiante.service';
-import { ArrowLeft, Loader2, Users, Search, AlertCircle, XCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, Search, AlertCircle, XCircle, CheckCircle, Edit3, Trash2, X } from 'lucide-react';
 
 const ESTADO_COLOR = {
   PRESENTE:    'bg-green-100 text-brand-green',
@@ -31,6 +31,12 @@ export default function VistaAsistencias({ tipo }) {
   const [confirmando, setConfirmando]         = useState(false);
   const [cerrando, setCerrando]               = useState(false);
   const [resultadoCierre, setResultadoCierre] = useState(null); // { ok, mensaje, marcados }
+
+  // Estado para editar / anular asistencia (estudiantes)
+  const [registroAEditar, setRegistroAEditar] = useState(null);
+  const [nuevoEstadoEditar, setNuevoEstadoEditar] = useState('PRESENTE');
+  const [observacionEditar, setObservacionEditar] = useState('');
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError('');
@@ -76,6 +82,46 @@ export default function VistaAsistencias({ tipo }) {
       });
     } finally {
       setCerrando(false);
+    }
+  };
+
+  const abrirModalEditar = (r) => {
+    setRegistroAEditar(r);
+    setNuevoEstadoEditar(r.estado_asistencia || 'PRESENTE');
+    setObservacionEditar(r.observaciones || '');
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!registroAEditar) return;
+    setGuardandoEdicion(true);
+    try {
+      await asistenciaEstudianteService.actualizar(registroAEditar.id_asistencia, {
+        estado_asistencia: nuevoEstadoEditar,
+        observaciones: observacionEditar.trim() || undefined,
+      });
+      setRegistroAEditar(null);
+      cargar();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al actualizar asistencia.');
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  const handleEliminarAsistencia = async () => {
+    if (!registroAEditar) return;
+    const nombre = `${registroAEditar.apellido_paterno || ''} ${registroAEditar.nombres || ''}`.trim();
+    if (!window.confirm(`¿Estás seguro de eliminar el registro de asistencia de ${nombre}?`)) return;
+
+    setGuardandoEdicion(true);
+    try {
+      await asistenciaEstudianteService.eliminar(registroAEditar.id_asistencia);
+      setRegistroAEditar(null);
+      cargar();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al eliminar asistencia.');
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -240,9 +286,21 @@ export default function VistaAsistencias({ tipo }) {
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className={`text-xs font-bold px-3 py-1 rounded-full ${ESTADO_COLOR[r.estado_asistencia] || 'bg-gray-100 text-gray-500'}`}>
-                  {r.estado_asistencia}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${ESTADO_COLOR[r.estado_asistencia] || 'bg-gray-100 text-gray-500'}`}>
+                    {r.estado_asistencia}
+                  </span>
+                  {tipo === 'estudiantes' && (
+                    <button
+                      type="button"
+                      onClick={() => abrirModalEditar(r)}
+                      className="p-1 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg active:scale-95 transition-all"
+                      title="Editar o corregir asistencia (cambiar a Falta/Justificado o Eliminar)"
+                    >
+                      <Edit3 size={15} />
+                    </button>
+                  )}
+                </div>
                 {tipo === 'estudiantes' && r.estado_asistencia !== 'FALTA' && (
                   r.hora_salida ? (
                     <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md">
@@ -294,6 +352,92 @@ export default function VistaAsistencias({ tipo }) {
                   Sí, Cerrar Día
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Editar o Corregir Asistencia por Error */}
+      {registroAEditar && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setRegistroAEditar(null)}>
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-base text-brand-black flex items-center gap-1.5">
+                  <Edit3 size={18} className="text-brand-blue" />
+                  <span>Corregir Asistencia</span>
+                </h3>
+                <p className="text-xs text-gray-500 font-medium mt-0.5">
+                  {registroAEditar.apellido_paterno} {registroAEditar.apellido_materno || ''}, {registroAEditar.nombres}
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  {registroAEditar.nivel} · {registroAEditar.grado} {registroAEditar.seccion} · Fecha: {fecha}
+                </p>
+              </div>
+              <button onClick={() => setRegistroAEditar(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-gray-600 uppercase block">Seleccionar nuevo estado:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { val: 'FALTA', label: '❌ Falta', desc: 'No vino / Inasistencia', color: 'border-red-300 text-brand-red bg-red-50/70' },
+                  { val: 'JUSTIFICADO', label: 'ℹ️ Justificado', desc: 'Inasistencia con justificación', color: 'border-blue-300 text-brand-blue bg-blue-50/70' },
+                  { val: 'PRESENTE', label: '✓ Presente', desc: 'Asistió a clases', color: 'border-green-300 text-brand-green bg-green-50/70' },
+                  { val: 'TARDANZA', label: '⏰ Tardanza', desc: 'Llegó con tardanza', color: 'border-yellow-300 text-yellow-800 bg-yellow-50/70' },
+                ].map(op => {
+                  const activo = nuevoEstadoEditar === op.val;
+                  return (
+                    <button
+                      key={op.val}
+                      type="button"
+                      onClick={() => setNuevoEstadoEditar(op.val)}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        activo ? `${op.color} ring-2 ring-brand-blue shadow-sm font-bold` : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <p className="text-sm font-bold">{op.label}</p>
+                      <p className="text-[10px] text-gray-500 font-normal leading-tight mt-0.5">{op.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 uppercase block mb-1">Motivo / Observación (Opcional):</label>
+                <input
+                  type="text"
+                  value={observacionEditar}
+                  onChange={e => setObservacionEditar(e.target.value)}
+                  placeholder="Ej. Se corrigió: el estudiante no vino hoy"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t">
+              <button
+                type="button"
+                disabled={guardandoEdicion}
+                onClick={handleGuardarEdicion}
+                className="w-full bg-brand-blue hover:bg-blue-900 text-white py-3 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {guardandoEdicion ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                <span>Guardar Corrección</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={guardandoEdicion}
+                onClick={handleEliminarAsistencia}
+                className="w-full bg-red-50 text-brand-red hover:bg-red-100 border border-red-200 py-2.5 rounded-xl font-bold text-xs active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                title="Elimina el registro de asistencia de la base de datos"
+              >
+                <Trash2 size={14} />
+                <span>Eliminar Registro de Asistencia</span>
+              </button>
             </div>
           </div>
         </div>

@@ -109,7 +109,15 @@ export default function GestionMatriculas() {
   };
 
   const cambiarEstado = async (m, estado) => {
-    try { await matriculasService.cambiarEstado(m.id_matricula, estado); cargar(); } catch { }
+    const accion = estado === 'RETIRADO' ? 'retirar' : estado.toLowerCase();
+    const nombre = `${m.nombres || ''} ${m.apellido_paterno || ''}`.trim();
+    if (!window.confirm(`¿Estás seguro de ${accion} la matrícula de ${nombre || 'este estudiante'}?`)) return;
+    try {
+      await matriculasService.cambiarEstado(m.id_matricula, estado);
+      cargar();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error al cambiar estado de la matrícula.');
+    }
   };
 
   const ESTADO_COLOR = { ACTIVO: 'bg-green-100 text-brand-green', RETIRADO: 'bg-red-100 text-brand-red', TRASLADADO: 'bg-yellow-100 text-yellow-700', CULMINADO: 'bg-gray-100 text-gray-500' };
